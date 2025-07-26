@@ -1,5 +1,5 @@
 // reload page to refresh data
-document.getElementById('clear-station-data').addEventListener('click', () => {
+document.getElementById('update-station-data').addEventListener('click', () => {
     localStorage.removeItem('stationData');
     location.reload();
 });
