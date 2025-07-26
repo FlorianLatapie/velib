@@ -257,5 +257,10 @@ updatePage();
 
 refreshButton = document.getElementById('refresh');
 refreshButton.addEventListener('click', () => {
+    // make the button spin
+    refreshButton.classList.add('spin');
+    setTimeout(() => {
+        refreshButton.classList.remove('spin');
+    }, 1000);
     updatePage();
 });
