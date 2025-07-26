@@ -4,9 +4,7 @@ document.getElementById('clear-station-data').addEventListener('click', () => {
     location.reload();
 });
 
-
 // get setup from localStorage
-
 let stationData;
 
 if (!localStorage.getItem('stationData')) {
@@ -15,44 +13,76 @@ if (!localStorage.getItem('stationData')) {
     formContainer.innerHTML = `
         <h2>Choisissez vos stations</h2>
         <form id="stationForm">
+            <div id="stationsContainer">
                 <div class="form-group">
-                    <label for="originStation">Numéro de la station d'origine:</label>
-                    <input type="number" id="originStationNumber" required>
+                    <label for="stationNumber0">Station 1:</label>
+                    <input type="number" id="stationNumber0" required>
                 </div>
                 <div class="form-group">
-                    <label for="destinationStation">Numéro de la station de destination:</label>
-                    <input type="number" id="destinationStationNumber" required>
+                    <label for="stationNumber1">Station 2:</label>
+                    <input type="number" id="stationNumber1" required>
                 </div>
-                <button type="submit" class="apple-style-button">Sauvegarder</button>
-            </form>
+            </div>
+            <button type="button" id="addStation" class="apple-style-button">Ajouter une station</button>
+            <button type="button" id="removeStation" class="apple-style-button">Supprimer la dernière station</button>
+            <button type="submit" class="apple-style-button">Sauvegarder</button>
+        </form>
     `;
     document.body.appendChild(formContainer);
 
+    let stationCount = 2;
+    
+    document.getElementById('addStation').addEventListener('click', () => {
+        const container = document.getElementById('stationsContainer');
+        const newGroup = document.createElement('div');
+        newGroup.className = 'form-group';
+        newGroup.innerHTML = `
+            <label for="stationNumber${stationCount}">Station ${stationCount + 1}:</label>
+            <input type="number" id="stationNumber${stationCount}" required>
+        `;
+        container.appendChild(newGroup);
+        stationCount++;
+    });
+
+    document.getElementById('removeStation').addEventListener('click', () => {
+        if (stationCount > 2) {
+            const container = document.getElementById('stationsContainer');
+            container.removeChild(container.lastElementChild);
+            stationCount--;
+        }
+    });
+
     document.getElementById('stationForm').addEventListener('submit', (event) => {
         event.preventDefault();
-        const originStationNumber = document.getElementById('originStationNumber').value;
-        const destinationStationNumber = document.getElementById('destinationStationNumber').value;
+        const stations = [];
+        
+        for (let i = 0; i < stationCount; i++) {
+            const stationNumber = document.getElementById(`stationNumber${i}`).value;
+            if (stationNumber) {
+                stations.push(stationNumber);
+            }
+        }
 
         // Fetch station names
         fetch(`https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json`)
             .then(response => response.json())
             .then(data => {
-                const stations = data.data.stations;
-                const originStation = stations.find(station => station.stationCode == originStationNumber);
-                const destinationStation = stations.find(station => station.stationCode == destinationStationNumber);
-
-                if (!originStation || !destinationStation) {
-                    alert('Une ou les deux stations n\'existent pas. Veuillez réessayer.');
-                    return;
+                const stationInfos = data.data.stations;
+                const validStations = [];
+                
+                for (const stationNumber of stations) {
+                    const station = stationInfos.find(s => s.stationCode == stationNumber);
+                    if (!station) {
+                        alert(`La station ${stationNumber} n'existe pas. Veuillez réessayer.`);
+                        return;
+                    }
+                    validStations.push({
+                        number: stationNumber,
+                        name: station.name
+                    });
                 }
 
-                stationData = {
-                    origin: originStationNumber,
-                    originName: originStation.name,
-                    destination: destinationStationNumber,
-                    destinationName: destinationStation.name
-                };
-
+                stationData = { stations: validStations };
                 localStorage.setItem('stationData', JSON.stringify(stationData));
                 location.reload();
             })
@@ -65,8 +95,86 @@ if (!localStorage.getItem('stationData')) {
 
 // set up 
 myStationData = JSON.parse(localStorage.getItem('stationData'));
-document.getElementById('station-name-origin').textContent = myStationData.originName;
-document.getElementById('station-name-destination').textContent = myStationData.destinationName;
+
+// Create dynamic station panes
+function createStationPanes() {
+    const container = document.getElementById('half-pane-container');
+    container.innerHTML = ''; // Clear existing content
+    
+    const stations = myStationData.stations;
+    const stationsPerColumn = Math.ceil(stations.length / 2);
+    
+    // Create left column
+    const leftColumn = document.createElement('div');
+    leftColumn.className = 'station-column';
+    
+    // Create right column
+    const rightColumn = document.createElement('div');
+    rightColumn.className = 'station-column';
+    
+    stations.forEach((station, index) => {
+        const pane = createStationPane(station, index);
+        if (index < stationsPerColumn) {
+            leftColumn.appendChild(pane);
+        } else {
+            rightColumn.appendChild(pane);
+        }
+    });
+    
+    container.appendChild(leftColumn);
+    container.appendChild(rightColumn);
+}
+
+function createStationPane(station, index) {
+    const pane = document.createElement('div');
+    pane.className = 'pane station-pane';
+    pane.innerHTML = `
+        <div class="container-row-space-around">
+            <h2 class="station-name" id="station-name-${index}">${station.name}</h2>
+        </div>
+        <div class="container-row-space-around">
+            <div class="mechanical summary-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="icon mechanical" aria-hidden="true">
+                    <circle cx="18.5" cy="17.5" r="3.5"></circle>
+                    <circle cx="5.5" cy="17.5" r="3.5"></circle>
+                    <circle cx="15" cy="5" r="1"></circle>
+                    <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path>
+                </svg>
+                <p class="info-text">Mécanique</p>
+                <p class="count" id="mechanical-count-${index}">--</p>
+            </div>
+            <div class="electric summary-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="icon electric" aria-hidden="true">
+                    <path
+                        d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
+                    </path>
+                </svg>
+                <p class="info-text">Électrique</p>
+                <p class="count" id="electric-count-${index}">--</p>
+            </div>
+            <div class="parking summary-item">
+                <svg class="icon parking" width="24" height="24" viewBox="0 0 128 128"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M 23.520836,11.511719 L 68.450523,11.511719 C 81.809827,11.511824 92.052004,14.488383 99.177086,20.441406 C 106.34886,26.347746 109.9348,34.785238 109.9349,45.753906 C 109.9348,56.769591 106.34886,65.253957 99.177086,71.207031 C 92.052004,77.113321 81.809827,80.066443 68.450523,80.066406 L 50.591148,80.066406 L 50.591148,116.48828 L 23.520836,116.48828 L 23.520836,11.511719 M 50.591148,31.128906 L 50.591148,60.449219 L 65.567711,60.449219 C 70.81765,60.449275 74.872334,59.183651 77.731773,56.652344 C 80.591078,54.074281 82.020764,50.441472 82.020836,45.753906 C 82.020764,41.066482 80.591078,37.45711 77.731773,34.925781 C 74.872334,32.394615 70.81765,31.128992 65.567711,31.128906 L 50.591148,31.128906" />
+                </svg>
+                <p class="info-text">Parking</p>
+                <p class="count" id="parking-count-${index}">--</p>
+            </div>
+        </div>
+        <div id="bike-list-${index}" class="container-col-space-between">
+            téléchargement des données ...
+        </div>
+    `;
+    return pane;
+}
+
+// Initialize the dynamic panes
+createStationPanes();
 
 // fill in summary data
 async function fetchStationsStatus() {
@@ -82,21 +190,19 @@ async function fetchStationsStatus() {
 
 async function updateStationSummary() {
     const stations = await fetchStationsStatus();
-    originStation = stations.find(station => station.stationCode == myStationData.origin);
-    destinationStation = stations.find(station => station.stationCode == myStationData.destination);
-    if (!originStation || !destinationStation) {
-        console.error('One or both stations not found');
-        return;
-    }
-    document.getElementById('mechanical-count-origin').innerText = originStation.num_bikes_available_types.find(type => type.mechanical)?.mechanical || 0;
-    document.getElementById('electric-count-origin').innerText = originStation.num_bikes_available_types.find(type => type.ebike)?.ebike || 0;
-    document.getElementById('parking-count-origin').innerText = originStation.numDocksAvailable;
-
-    document.getElementById('mechanical-count-destination').innerText = destinationStation.num_bikes_available_types.find(type => type.mechanical)?.mechanical || 0;
-    document.getElementById('electric-count-destination').innerText = destinationStation.num_bikes_available_types.find(type => type.ebike)?.ebike || 0;
-    document.getElementById('parking-count-destination').innerText = destinationStation.numDocksAvailable;
+    
+    myStationData.stations.forEach((stationData, index) => {
+        const station = stations.find(s => s.stationCode == stationData.number);
+        if (!station) {
+            console.error(`Station ${stationData.number} not found`);
+            return;
+        }
+        
+        document.getElementById(`mechanical-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.mechanical)?.mechanical || 0;
+        document.getElementById(`electric-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.ebike)?.ebike || 0;
+        document.getElementById(`parking-count-${index}`).innerText = station.numDocksAvailable;
+    });
 }
-
 
 // get precise bike list for a station
 async function fetchBikeList(stationName, stationID) {
@@ -209,41 +315,25 @@ function displayBikeList(bikeList, containerId) {
         `;
         tbody.appendChild(row2bis);
 
-        /*const row3 = document.createElement('tr');
-        row3.className = "container-row-space-around";
-        row3.innerHTML = `
-            <td><p><strong>Type</strong></p></td>
-            <td><p>${bike.typeTxt}</p></td>
-        `;
-        tbody.appendChild(row3);
-
-        const row4 = document.createElement('tr');
-        row4.className = "container-row-space-around";
-        row4.innerHTML = `
-            <td><p><strong>ID</strong></p></td>
-            <td><p>${bike.bikeName}</p></td>
-        `;
-        tbody.appendChild(row4);*/
-
         bikeItem.appendChild(tbody);
         container.appendChild(bikeItem);
     });
 }
 
-async function updateBikeLists(bikeListOriginPromise, bikeListDestinationPromise) {
-    const bikeListOrigin = await bikeListOriginPromise;
-    const bikeListDestination = await bikeListDestinationPromise;
-    displayBikeList(bikeListOrigin, 'bike-list-origin');
-    displayBikeList(bikeListDestination, 'bike-list-destination');
+async function updateBikeLists() {
+    const bikeListPromises = myStationData.stations.map((station, index) => 
+        fetchBikeList(station.name, station.number).then(bikes => ({index, bikes}))
+    );
+    
+    const results = await Promise.all(bikeListPromises);
+    results.forEach(({index, bikes}) => {
+        displayBikeList(bikes, `bike-list-${index}`);
+    });
 }
 
 async function updatePage() {
     await updateStationSummary();
-    await updateBikeLists(
-        fetchBikeList(myStationData.originName, myStationData.origin), 
-        fetchBikeList(myStationData.destinationName, myStationData.destination)
-    );
-
+    await updateBikeLists();
 }
 
 // Call updatePage and handle any errors

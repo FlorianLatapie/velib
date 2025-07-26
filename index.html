@@ -13,7 +13,6 @@
     <div id="mainPage">
         <div class="title-container">
             <h1>Velib shortcut</h1>
-            <!-- <h1>Trajet impossible !-->
             <button id="refresh" class="refresh-button">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -26,98 +25,10 @@
             </button>
         </div>
         <div id="half-pane-container" class="container-row-space-around">
-            <div class="pane half-pane">
-                <div id="top-origin" class="container-row-space-around">
-                    <h2 class="station-name" id="station-name-origin">Station d'origine</h2>
-                </div>
-                <div id="summary-origin" class="container-row-space-around">
-                    <div id="mechanical-origin" class="mechanical summary-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="icon mechanical" aria-hidden="true">
-                            <circle cx="18.5" cy="17.5" r="3.5"></circle>
-                            <circle cx="5.5" cy="17.5" r="3.5"></circle>
-                            <circle cx="15" cy="5" r="1"></circle>
-                            <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path>
-                        </svg>
-                        <p class="info-text">Mécanique</p>
-                        <p class="count" id="mechanical-count-origin"--/p>
-                    </div>
-                    <div id="electric-origin" class="electric summary-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="icon electric" aria-hidden="true">
-                            <path
-                                d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
-                            </path>
-                        </svg>
-                        <p class="info-text">Électrique</p>
-                        <p class="count" id="electric-count-origin"--/p>
-                    </div>
-                    <div id="parking-origin" class="parking summary-item">
-                        <svg class="icon parking" width="24" height="24" viewBox="0 0 128 128"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M 23.520836,11.511719 L 68.450523,11.511719 C 81.809827,11.511824 92.052004,14.488383 99.177086,20.441406 C 106.34886,26.347746 109.9348,34.785238 109.9349,45.753906 C 109.9348,56.769591 106.34886,65.253957 99.177086,71.207031 C 92.052004,77.113321 81.809827,80.066443 68.450523,80.066406 L 50.591148,80.066406 L 50.591148,116.48828 L 23.520836,116.48828 L 23.520836,11.511719 M 50.591148,31.128906 L 50.591148,60.449219 L 65.567711,60.449219 C 70.81765,60.449275 74.872334,59.183651 77.731773,56.652344 C 80.591078,54.074281 82.020764,50.441472 82.020836,45.753906 C 82.020764,41.066482 80.591078,37.45711 77.731773,34.925781 C 74.872334,32.394615 70.81765,31.128992 65.567711,31.128906 L 50.591148,31.128906" />
-                        </svg>
-                        <p class="info-text">Parking</p>
-                        <p class="count" id="parking-count-origin"--/p>
-                    </div>
-                </div>
-                <div id="bike-list-origin" class="container-col-space-between">
-                    <!-- js will populate this section -->
-                    téléchargement des données ...
-                </div>
-            </div>
-            <div class="pane half-pane">
-                <div id="top-destination" class="container-row-space-around">
-                    <h2 class="station-name" id="station-name-destination">Station de destination</h2>
-                </div>
-                <div id="summary-destination" class="container-row-space-around">
-                    <div id="mechanical-destination" class="mechanical summary-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="icon mechanical" aria-hidden="true">
-                            <circle cx="18.5" cy="17.5" r="3.5"></circle>
-                            <circle cx="5.5" cy="17.5" r="3.5"></circle>
-                            <circle cx="15" cy="5" r="1"></circle>
-                            <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path>
-                        </svg>
-                        <p class="info-text">Mécanique</p>
-                        <p class="count" id="mechanical-count-destination"--/p>
-                    </div>
-                    <div id="electric-destination" class="electric summary-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            class="icon electric" aria-hidden="true">
-                            <path
-                                d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
-                            </path>
-                        </svg>
-                        <p class="info-text">Électrique</p>
-                        <p class="count" id="electric-count-destination"--/p>
-                    </div>
-                    <div id="parking-destination" class="parking summary-item">
-                        <svg class="icon parking" width="24" height="24" viewBox="0 0 128 128"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M 23.520836,11.511719 L 68.450523,11.511719 C 81.809827,11.511824 92.052004,14.488383 99.177086,20.441406 C 106.34886,26.347746 109.9348,34.785238 109.9349,45.753906 C 109.9348,56.769591 106.34886,65.253957 99.177086,71.207031 C 92.052004,77.113321 81.809827,80.066443 68.450523,80.066406 L 50.591148,80.066406 L 50.591148,116.48828 L 23.520836,116.48828 L 23.520836,11.511719 M 50.591148,31.128906 L 50.591148,60.449219 L 65.567711,60.449219 C 70.81765,60.449275 74.872334,59.183651 77.731773,56.652344 C 80.591078,54.074281 82.020764,50.441472 82.020836,45.753906 C 82.020764,41.066482 80.591078,37.45711 77.731773,34.925781 C 74.872334,32.394615 70.81765,31.128992 65.567711,31.128906 L 50.591148,31.128906" />
-                        </svg>
-                        <p class="info-text">Parking</p>
-                        <p class="count" id="parking-count-destination"--/p>
-                    </div>
-                </div>
-                <div id="bike-list-destination" class="container-col-space-between">
-                    <!-- js will populate this section -->
-                    téléchargement des données ...
-                </div>
-            </div>
+            <!-- Les stations seront générées dynamiquement par JavaScript -->
         </div>
         <div class="pane bottom-pane">
             <button id="clear-station-data" class="apple-style-button">Changer de stations</button>
-            <!--<h2>Crédits</h2>
-            <p>Développé par <a href="https://github.com/FlorianLatapie">Florian Latapie</a></p>
-        -->
         </div>
     </div>
 </body>

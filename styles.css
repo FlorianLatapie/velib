@@ -74,6 +74,25 @@ td>p {
     gap: 3px;
 }
 
+.station-column {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.station-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    background-color: #eeeeee;
+    border-radius: 10px;
+    padding: 10px;
+
+    box-shadow: 0 -4px 20px #0000001a, 0 -1px 3px #00000014;
+}
+
 .half-pane {
     width: 50%;
 
@@ -109,8 +128,6 @@ td>p {
     color: #152856;
     background-color: #f8fafc;
 }
-
-
 
 .summary-item {
     flex: 1;
@@ -165,6 +182,7 @@ td>p {
     color: #2374f5;
     border: none;
     text-align: left;
+    margin: 5px;
 }
 
 .apple-style-button:hover {
@@ -193,6 +211,17 @@ td>p {
     gap: 10px;
     justify-content: center;
     align-items: center;
+}
+
+#stationsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 10px;
 }
 
 .form-container h2 {
