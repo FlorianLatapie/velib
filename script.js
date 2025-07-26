@@ -1,3 +1,8 @@
+document.getElementById('delete-data').addEventListener('click', () => {
+    localStorage.removeItem('stationData');
+    location.reload();
+});
+
 // reload page to refresh data
 document.getElementById('update-station-data').addEventListener('click', () => {
     showStationForm();
