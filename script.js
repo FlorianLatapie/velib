@@ -1,21 +1,15 @@
+// reload page to refresh data
 document.getElementById('clear-station-data').addEventListener('click', () => {
     localStorage.removeItem('stationData');
     location.reload();
 });
 
+
+// get setup from localStorage
+
 let stationData;
 
 if (!localStorage.getItem('stationData')) {
-    /*
-
-    stationData = {
-        origin: "1002",
-        originName: "Victoria - Place du Chatelet",
-        destination: "1003",
-        destinationName: "Saint-Denis - Rivoli"
-    };
-    localStorage.setItem('stationData', JSON.stringify(stationData));*/
-    // add a div centered on the screen with a a form to input 
     const formContainer = document.createElement('div');
     formContainer.className = 'form-container';
     formContainer.innerHTML = `
@@ -73,7 +67,7 @@ if (!localStorage.getItem('stationData')) {
                 alert('Erreur lors de la récupération des informations de station. Veuillez réessayer.');
             });
     });
-} 
+}
 
 // set up 
 myStationData = JSON.parse(localStorage.getItem('stationData'));
@@ -110,44 +104,65 @@ async function updateStationSummary() {
 }
 
 
-// get bike list
-async function fetchBikeList(stationName) {
-    const body = {
-        "disponibility": "yes",
-        "stationName": stationName
-    };
-    const headers = {
-        "Content-Type": "application/json"
-    };
-    const options = {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(body)
-    };
-
+// get precise bike list for a station
+async function fetchBikeList(stationName, stationID) {
+    let bikes = [];
     try {
+        const body = {
+            "disponibility": "yes",
+            "stationName": stationName
+        };
+        const options = {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        };
         const response = await fetch(`https://www.velib-metropole.fr/api/secured/searchStation`, options);
         const data = await response.json();
-        let bikes = data[0].bikes;
+        bikes = data[0].bikes;
 
-        // we now sort by best bike 
+        
+    } catch (error) {
+        console.error('Error fetching bike list:', error);
+        return [];
+    }
+
+    try {
+        const response = await fetch(`https://corsproxy.io/?url=https://tdqr.ovh/api/stations/station_${stationID}/details`);
+        const data = await response.json();
+        tdqrBikes = data.data.bikes;
+        bikes.forEach(bike => {
+            const tdqrBike = tdqrBikes.find(tdqrBike => tdqrBike.id === `bike_${bike.bikeName}`);
+            if (tdqrBike) {
+                bike.score = tdqrBike.score || 0; 
+            } else {
+                bike.score = 0;
+            }
+        });
+        
+    }    catch (error) {
+        console.error('Error fetching tdqr.ovh bike list:', error);
+        return [];
+    }
+
+    // sort by best bike 
         // criterion 
         // 1. bikeStatus == "disponible"
-        // 2. bikeRate
-        // 3. bikeRate * numberOfRates
+        // 2. score (from tdqr.ovh)
+        // 3. bikeRate
+        // 4. bikeRate * numberOfRates
         bikes.sort((a, b) => {
             if (a.bikeStatus === "disponible" && b.bikeStatus !== "disponible") return -1; // prioritize available bikes
             if (b.bikeStatus === "disponible" && a.bikeStatus !== "disponible") return 1; // prioritize available bikes
+            if (a.score !== b.score) return b.score - a.score; // sort by score descending
             if (a.bikeRate !== b.bikeRate) return b.bikeRate - a.bikeRate; // sort by bikeRate descending
             // if bikeRate is the same, sort by numberOfRates descending
             return b.numberOfRates - a.numberOfRates;
         });     
 
-        return bikes;
-    } catch (error) {
-        console.error('Error fetching bike list:', error);
-        return [];
-    }
+    return bikes;
 }
 
 function displayBikeList(bikeList, containerId) {
@@ -162,7 +177,6 @@ function displayBikeList(bikeList, containerId) {
         return;
     }
     bikeList.forEach(bike => {
-        console.log(bike);
         if (bike.bikeElectric === "yes") {
             bike.type = "electric";
             bike.typeTxt = "Électrique";
@@ -193,7 +207,15 @@ function displayBikeList(bikeList, containerId) {
         `;
         tbody.appendChild(row2);
 
-        const row3 = document.createElement('tr');
+        const row2bis = document.createElement('tr');
+        row2bis.className = "container-row-space-around";
+        row2bis.innerHTML = `
+            <td><p><strong>Velibest</strong></p></td>
+            <td><p>${bike.score}⭐</p></td>
+        `;
+        tbody.appendChild(row2bis);
+
+        /*const row3 = document.createElement('tr');
         row3.className = "container-row-space-around";
         row3.innerHTML = `
             <td><p><strong>Type</strong></p></td>
@@ -207,7 +229,7 @@ function displayBikeList(bikeList, containerId) {
             <td><p><strong>ID</strong></p></td>
             <td><p>${bike.bikeName}</p></td>
         `;
-        tbody.appendChild(row4);
+        tbody.appendChild(row4);*/
 
         bikeItem.appendChild(tbody);
         container.appendChild(bikeItem);
@@ -221,10 +243,12 @@ async function updateBikeLists(bikeListOriginPromise, bikeListDestinationPromise
     displayBikeList(bikeListDestination, 'bike-list-destination');
 }
 
-async function updatePage(){
-    
+async function updatePage() {
     await updateStationSummary();
-    await updateBikeLists(fetchBikeList(myStationData.originName), fetchBikeList(myStationData.destinationName));
+    await updateBikeLists(
+        fetchBikeList(myStationData.originName, myStationData.origin), 
+        fetchBikeList(myStationData.destinationName, myStationData.destination)
+    );
 
 }
 
