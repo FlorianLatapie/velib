@@ -23,15 +23,9 @@ if (!localStorage.getItem('stationData')) {
                     <label for="destinationStation">Numéro de la station de destination:</label>
                     <input type="number" id="destinationStationNumber" required>
                 </div>
-                <button type="submit">Sauvegarder</button>
+                <button type="submit" class="apple-style-button">Sauvegarder</button>
             </form>
     `;
-    // make the form on top of the page
-    formContainer.style.position = 'fixed';
-    formContainer.style.top = '0';
-    formContainer.style.backgroundColor = 'white';
-    formContainer.style.height = "100vh";
-    formContainer.style.width = "100vw";
     document.body.appendChild(formContainer);
 
     document.getElementById('stationForm').addEventListener('submit', (event) => {
