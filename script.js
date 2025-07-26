@@ -1,36 +1,59 @@
 // reload page to refresh data
 document.getElementById('update-station-data').addEventListener('click', () => {
-    localStorage.removeItem('stationData');
-    location.reload();
+    showStationForm();
 });
 
 // get setup from localStorage
 let stationData;
 
-if (!localStorage.getItem('stationData')) {
+function showStationForm() {
+    // Get existing station data for autofill
+    const existingStationData = JSON.parse(localStorage.getItem('stationData'));
+    const existingStations = existingStationData ? existingStationData.stations : [];
+    
     const formContainer = document.createElement('div');
     formContainer.className = 'form-container';
     formContainer.innerHTML = `
         <h2>Choisissez vos stations</h2>
         <form id="stationForm">
             <div id="stationsContainer">
-                <div class="form-group">
-                    <label for="stationNumber0">Station 1:</label>
-                    <input type="number" id="stationNumber0" required>
-                </div>
-                <div class="form-group">
-                    <label for="stationNumber1">Station 2:</label>
-                    <input type="number" id="stationNumber1" required>
-                </div>
+                <!-- Stations will be generated dynamically -->
             </div>
             <button type="button" id="addStation" class="apple-style-button">Ajouter une station</button>
             <button type="button" id="removeStation" class="apple-style-button">Supprimer la dernière station</button>
             <button type="submit" class="apple-style-button">Sauvegarder</button>
         </form>
     `;
+    
+    // Remove existing form if any
+    const existingForm = document.querySelector('.form-container');
+    if (existingForm) {
+        existingForm.remove();
+    }
+    
     document.body.appendChild(formContainer);
 
-    let stationCount = 2;
+    // Initialize with existing stations or default 2 stations
+    let stationCount = Math.max(existingStations.length, 2);
+    
+    // Generate initial form groups
+    function generateStationInputs() {
+        const container = document.getElementById('stationsContainer');
+        container.innerHTML = '';
+        
+        for (let i = 0; i < stationCount; i++) {
+            const newGroup = document.createElement('div');
+            newGroup.className = 'form-group';
+            const existingValue = existingStations[i] ? existingStations[i].number : '';
+            newGroup.innerHTML = `
+                <label for="stationNumber${i}">Station ${i + 1}:</label>
+                <input type="number" id="stationNumber${i}" value="${existingValue}" required>
+            `;
+            container.appendChild(newGroup);
+        }
+    }
+    
+    generateStationInputs();
     
     document.getElementById('addStation').addEventListener('click', () => {
         const container = document.getElementById('stationsContainer');
@@ -84,6 +107,7 @@ if (!localStorage.getItem('stationData')) {
 
                 stationData = { stations: validStations };
                 localStorage.setItem('stationData', JSON.stringify(stationData));
+                formContainer.remove();
                 location.reload();
             })
             .catch(error => {
@@ -91,6 +115,10 @@ if (!localStorage.getItem('stationData')) {
                 alert('Erreur lors de la récupération des informations de station. Veuillez réessayer.');
             });
     });
+}
+
+if (!localStorage.getItem('stationData')) {
+    showStationForm();
 }
 
 // set up 
@@ -173,7 +201,9 @@ function createStationPane(station, index) {
 }
 
 // Initialize the dynamic panes
-createStationPanes();
+if (myStationData) {
+    createStationPanes();
+}
 
 // fill in summary data
 async function fetchStationsStatus() {
@@ -334,6 +364,7 @@ async function updateBikeLists() {
 }
 
 async function updatePage() {
+    if (!myStationData) return;
     await updateStationSummary();
     await updateBikeLists();
 }
