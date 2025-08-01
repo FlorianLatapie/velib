@@ -4,12 +4,14 @@
     box-sizing: border-box;
     font-family: system-ui, sans-serif;
     text-align: center;
+    /* make all element at the same z-index */
 }
 
 table {
     width: 100%;
-    border-radius: 5px;
-    box-shadow: 0 4px 20px #0000001a, 0 1px 3px #00000014
+    border-radius: 10px;
+    padding: 7px 0 7px 0;
+    box-shadow: 0 0 10px #0000003f;
 }
 
 tbody,
@@ -86,11 +88,10 @@ td>p {
     flex-direction: column;
     gap: 10px;
 
-    background-color: #eeeeee;
+    background-color: #ffffff;
     border-radius: 10px;
-    padding: 10px;
 
-    box-shadow: 0 -4px 20px #0000001a, 0 -1px 3px #00000014;
+    box-shadow: 0 0 10px #0000001a;
 }
 
 .half-pane {
@@ -103,7 +104,7 @@ td>p {
     background-color: #eeeeee;
     border-radius: 10px;
 
-    box-shadow: 0 -4px 20px #0000001a, 0 -1px 3px #00000014;
+    box-shadow: 0 0 10px #0000001a;
 }
 
 .refresh-button {
@@ -140,7 +141,7 @@ td>p {
     padding: 5px;
     font-size: 60%;
 
-    box-shadow: 0 4px 20px #0000001a, 0 1px 3px #00000014
+    box-shadow: 0 0 10px #0000003f;
 }
 
 .count {
@@ -164,10 +165,12 @@ td>p {
 .refresh-button.spin {
     animation: spin 1s linear infinite;
 }
+
 @keyframes spin {
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }

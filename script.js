@@ -366,13 +366,13 @@ function displayBikeList(bikeList, containerId) {
         `;
         tbody.appendChild(dockPositionRow);
 
-        const scoreRow = document.createElement('tr');
+        /*const scoreRow = document.createElement('tr');
         scoreRow.className = "container-row-space-around";
         scoreRow.innerHTML = `
             <td><p><strong>Score</strong></p></td>
             <td><p>${bike.bikeRate} (${bike.numberOfRates} notes)</p></td>
         `;
-        tbody.appendChild(scoreRow);
+        tbody.appendChild(scoreRow);*/
 
         const velibestRow = document.createElement('tr');
         velibestRow.className = "container-row-space-around";
