@@ -271,12 +271,13 @@ async function fetchBikeList(stationName, stationID) {
             const tdqrBike = tdqrBikes.find(tdqrBike => tdqrBike.id === `bike_${bike.bikeName}`);
             if (tdqrBike) {
                 bike.score = tdqrBike.score || 0; 
+                bike.lastRideTime = tdqrBike.lastRideTime || "?";
             } else {
                 bike.score = 0;
+                bike.lastRideTime = "?";
             }
         });
-        
-    }    catch (error) {
+    } catch (error) {
         console.error('Error fetching tdqr.ovh bike list:', error);
         return [];
     }
@@ -297,6 +298,38 @@ async function fetchBikeList(stationName, stationID) {
         });     
 
     return bikes;
+}
+
+function getTimeTextFromNow(lastRideTime) {
+    if (lastRideTime === "?") return "?";
+
+    const lastRideDate = new Date(lastRideTime);
+    const diffMs = new Date().getTime() - lastRideDate.getTime();
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    let timeText = '';
+
+    if (diffMinutes < 1) {
+        timeText = 'moins d\'une minute';
+    } else if (diffMinutes < 60) {
+        // il y a X minutes
+        timeText = `il y a ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+    } else if (diffHours < 24) {
+        // il y a X heures
+        timeText = `il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+    } else if (diffDays < 30) {
+        // il y a X jours
+        timeText = `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+    }
+    // si trop long, afficher directement la date au format "dd/mm/yyyy"
+    return timeText || lastRideDate.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
 }
 
 function displayBikeList(bikeList, containerId) {
@@ -325,32 +358,40 @@ function displayBikeList(bikeList, containerId) {
         bikeItem.className = "bike-item "+ bike.type + " " + grayedOut;
         
         const tbody = document.createElement('tbody');
-        const row1 = document.createElement('tr');
-        row1.className = "container-row-space-around";
-        row1.innerHTML = `
+        const dockPositionRow = document.createElement('tr');
+        dockPositionRow.className = "container-row-space-around";
+        dockPositionRow.innerHTML = `
             <td><p><strong>Place</strong></p></td>
             <td><p><strong>${bike.dockPosition}</strong></p></td>
         `;
-        tbody.appendChild(row1);
+        tbody.appendChild(dockPositionRow);
 
-        const row2 = document.createElement('tr');
-        row2.className = "container-row-space-around";
-        row2.innerHTML = `
+        const scoreRow = document.createElement('tr');
+        scoreRow.className = "container-row-space-around";
+        scoreRow.innerHTML = `
             <td><p><strong>Score</strong></p></td>
             <td><p>${bike.bikeRate} (${bike.numberOfRates} notes)</p></td>
         `;
-        tbody.appendChild(row2);
+        tbody.appendChild(scoreRow);
 
-        const row2bis = document.createElement('tr');
-        row2bis.className = "container-row-space-around";
-        row2bis.innerHTML = `
+        const velibestRow = document.createElement('tr');
+        velibestRow.className = "container-row-space-around";
+        velibestRow.innerHTML = `
             <td><p><strong>Velibest</strong></p></td>
             <td>
                 <p><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-star h-3 w-3" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg>
                 ${bike.score}</p>
             </td>
         `;
-        tbody.appendChild(row2bis);
+        tbody.appendChild(velibestRow);
+
+        const lastRideRow = document.createElement('tr');
+        lastRideRow.className = "container-row-space-around";
+        lastRideRow.innerHTML = `
+            <td><p><strong>Dernier trajet</strong></p></td>
+            <td><p>${getTimeTextFromNow(bike.lastRideTime)}</p></td>
+        `;
+        tbody.appendChild(lastRideRow);
 
         bikeItem.appendChild(tbody);
         container.appendChild(bikeItem);
