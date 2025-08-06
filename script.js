@@ -92,7 +92,7 @@ function showStationForm() {
         }
 
         // Fetch station names
-        fetch(`https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json`)
+        fetch(`https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json`)
             .then(response => response.json())
             .then(data => {
                 const stationInfos = data.data.stations;
