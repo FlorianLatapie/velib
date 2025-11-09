@@ -1,6 +1,8 @@
 {
   "name": "Vélib",
   "short_name": "Vélib",
+  "description": "Quickly check Vélib' bike and stand availability at your favorite stations.",
+  "orientation": "portrait",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
