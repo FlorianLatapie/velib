@@ -1,6 +1,12 @@
 // copy old localstorage data from "stationData" to "velib"
+// temporary migration code
 if (localStorage.getItem('stationData') && !localStorage.getItem('velib')) {
     localStorage.setItem('velib', localStorage.getItem('stationData'));
+    localStorage.removeItem('stationData');
+}
+
+if (localStorage.getItem('velib') === localStorage.getItem('stationData')) {
+    localStorage.removeItem('stationData');
 }
 
 document.getElementById('delete-data').addEventListener('click', () => {
