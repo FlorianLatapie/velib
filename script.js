@@ -1,5 +1,5 @@
 document.getElementById('delete-data').addEventListener('click', () => {
-    localStorage.removeItem('stationData');
+    localStorage.removeItem('velib');
     location.reload();
 });
 
@@ -13,7 +13,7 @@ let stationData;
 
 function showStationForm() {
     // Get existing station data for autofill
-    const existingStationData = JSON.parse(localStorage.getItem('stationData'));
+    const existingStationData = JSON.parse(localStorage.getItem('velib'));
     const existingStations = existingStationData ? existingStationData.stations : [];
     
     const formContainer = document.createElement('div');
@@ -111,7 +111,7 @@ function showStationForm() {
                 }
 
                 stationData = { stations: validStations };
-                localStorage.setItem('stationData', JSON.stringify(stationData));
+                localStorage.setItem('velib', JSON.stringify(stationData));
                 formContainer.remove();
                 location.reload();
             })
@@ -122,12 +122,12 @@ function showStationForm() {
     });
 }
 
-if (!localStorage.getItem('stationData')) {
+if (!localStorage.getItem('velib')) {
     showStationForm();
 }
 
 // set up 
-myStationData = JSON.parse(localStorage.getItem('stationData'));
+myStationData = JSON.parse(localStorage.getItem('velib'));
 
 // Create dynamic station panes
 function createStationPanes() {
