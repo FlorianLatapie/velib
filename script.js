@@ -1,3 +1,8 @@
+// copy old localstorage data from "stationData" to "velib"
+if (localStorage.getItem('stationData') && !localStorage.getItem('velib')) {
+    localStorage.setItem('velib', localStorage.getItem('stationData'));
+}
+
 document.getElementById('delete-data').addEventListener('click', () => {
     localStorage.removeItem('velib');
     location.reload();
