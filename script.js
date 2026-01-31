@@ -11,9 +11,13 @@ if (localStorage.getItem('velib') === localStorage.getItem('stationData')) {
 
 // Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
 const CORS_PROXIES = [
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
+    //(url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`, // error 500
+    //(url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // timeout
+    //(url) => `https://cors-anywhere.com/${url}`, // error 500
+    //(url) => `https://thingproxy.freeboard.io/fetch/${url}`, // timeout
+    //(url) => `https://cors.eu.org/${url}`, // error 500
+    //(url) => `https://crossorigin.me/${url}`, // timeout
 ];
 
 async function fetchWithCorsProxy(targetUrl, options = {}) {
