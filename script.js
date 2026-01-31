@@ -9,6 +9,40 @@ if (localStorage.getItem('velib') === localStorage.getItem('stationData')) {
     localStorage.removeItem('stationData');
 }
 
+// Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
+const CORS_PROXIES = [
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+async function fetchWithCorsProxy(targetUrl, options = {}) {
+    let lastError = null;
+    
+    for (const proxyFn of CORS_PROXIES) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1000);
+            
+            const response = await fetch(proxyFn(targetUrl), {
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                return response;
+            }
+        } catch (e) {
+            lastError = e;
+            console.warn(`Proxy failed for ${targetUrl}:`, e.message);
+        }
+    }
+    
+    throw lastError || new Error('All CORS proxies failed');
+}
+
 document.getElementById('delete-data').addEventListener('click', () => {
     localStorage.removeItem('velib');
     location.reload();
@@ -103,7 +137,7 @@ function showStationForm() {
         }
 
         // Fetch station names
-        fetch(`https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json`)
+        fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
             .then(response => response.json())
             .then(data => {
                 const stationInfos = data.data.stations;
@@ -224,7 +258,7 @@ if (myStationData) {
 // fill in summary data
 async function fetchStationsStatus() {
     try {
-        const response = await fetch(`https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json`);
+        const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
         const statusData = await response.json();
         return statusData.data.stations;
     } catch (error) {
@@ -275,7 +309,8 @@ async function fetchBikeList(stationName, stationID) {
     }
 
     try {
-        const response = await fetch(`https://corsproxy.io/?url=https://tdqr.ovh/api/stations/station_${stationID}/details`);
+        const targetUrl = `https://tdqr.ovh/api/stations/station_${stationID}/details`;
+        const response = await fetchWithCorsProxy(targetUrl);
         const data = await response.json();
         tdqrBikes = data.data.bikes;
         bikes.forEach(bike => {
