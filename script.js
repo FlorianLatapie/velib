@@ -18,19 +18,19 @@ const CORS_PROXIES = [
 
 async function fetchWithCorsProxy(targetUrl, options = {}) {
     let lastError = null;
-    
+
     for (const proxyFn of CORS_PROXIES) {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 1000);
-            
+
             const response = await fetch(proxyFn(targetUrl), {
                 ...options,
                 signal: controller.signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (response.ok) {
                 return response;
             }
@@ -39,7 +39,7 @@ async function fetchWithCorsProxy(targetUrl, options = {}) {
             console.warn(`Proxy failed for ${targetUrl}:`, e.message);
         }
     }
-    
+
     throw lastError || new Error('All CORS proxies failed');
 }
 
@@ -60,7 +60,7 @@ function showStationForm() {
     // Get existing station data for autofill
     const existingStationData = JSON.parse(localStorage.getItem('velib'));
     const existingStations = existingStationData ? existingStationData.stations : [];
-    
+
     const formContainer = document.createElement('div');
     formContainer.className = 'form-container';
     formContainer.innerHTML = `
@@ -74,23 +74,23 @@ function showStationForm() {
             <button type="submit" class="apple-style-button">Sauvegarder</button>
         </form>
     `;
-    
+
     // Remove existing form if any
     const existingForm = document.querySelector('.form-container');
     if (existingForm) {
         existingForm.remove();
     }
-    
+
     document.body.appendChild(formContainer);
 
     // Initialize with existing stations or default 2 stations
     let stationCount = Math.max(existingStations.length, 2);
-    
+
     // Generate initial form groups
     function generateStationInputs() {
         const container = document.getElementById('stationsContainer');
         container.innerHTML = '';
-        
+
         for (let i = 0; i < stationCount; i++) {
             const newGroup = document.createElement('div');
             newGroup.className = 'form-group';
@@ -102,9 +102,9 @@ function showStationForm() {
             container.appendChild(newGroup);
         }
     }
-    
+
     generateStationInputs();
-    
+
     document.getElementById('addStation').addEventListener('click', () => {
         const container = document.getElementById('stationsContainer');
         const newGroup = document.createElement('div');
@@ -128,7 +128,7 @@ function showStationForm() {
     document.getElementById('stationForm').addEventListener('submit', (event) => {
         event.preventDefault();
         const stations = [];
-        
+
         for (let i = 0; i < stationCount; i++) {
             const stationNumber = document.getElementById(`stationNumber${i}`).value;
             if (stationNumber) {
@@ -142,7 +142,7 @@ function showStationForm() {
             .then(data => {
                 const stationInfos = data.data.stations;
                 const validStations = [];
-                
+
                 for (const stationNumber of stations) {
                     const station = stationInfos.find(s => s.stationCode == stationNumber);
                     if (!station) {
@@ -176,30 +176,30 @@ myStationData = JSON.parse(localStorage.getItem('velib'));
 
 // Create dynamic station panes
 function createStationPanes() {
-   const container = document.getElementById('half-pane-container');
-   container.innerHTML = ''; // Clear existing content
-   
-   const stations = myStationData.stations;
-   
-   // Create left column
-   const leftColumn = document.createElement('div');
-   leftColumn.className = 'station-column';
-   
-   // Create right column
-   const rightColumn = document.createElement('div');
-   rightColumn.className = 'station-column';
-   
-   stations.forEach((station, index) => {
-       const pane = createStationPane(station, index);
-       if (index % 2 === 0) {
-           leftColumn.appendChild(pane);
-       } else {
-           rightColumn.appendChild(pane);
-       }
-   });
-   
-   container.appendChild(leftColumn);
-   container.appendChild(rightColumn);
+    const container = document.getElementById('half-pane-container');
+    container.innerHTML = ''; // Clear existing content
+
+    const stations = myStationData.stations;
+
+    // Create left column
+    const leftColumn = document.createElement('div');
+    leftColumn.className = 'station-column';
+
+    // Create right column
+    const rightColumn = document.createElement('div');
+    rightColumn.className = 'station-column';
+
+    stations.forEach((station, index) => {
+        const pane = createStationPane(station, index);
+        if (index % 2 === 0) {
+            leftColumn.appendChild(pane);
+        } else {
+            rightColumn.appendChild(pane);
+        }
+    });
+
+    container.appendChild(leftColumn);
+    container.appendChild(rightColumn);
 }
 
 function createStationPane(station, index) {
@@ -269,14 +269,14 @@ async function fetchStationsStatus() {
 
 async function updateStationSummary() {
     const stations = await fetchStationsStatus();
-    
+
     myStationData.stations.forEach((stationData, index) => {
         const station = stations.find(s => s.stationCode == stationData.number);
         if (!station) {
             console.error(`Station ${stationData.number} not found`);
             return;
         }
-        
+
         document.getElementById(`mechanical-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.mechanical)?.mechanical || 0;
         document.getElementById(`electric-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.ebike)?.ebike || 0;
         document.getElementById(`parking-count-${index}`).innerText = station.numDocksAvailable;
@@ -302,7 +302,7 @@ async function fetchBikeList(stationName, stationID) {
         const data = await response.json();
         bikes = data[0].bikes;
 
-        
+
     } catch (error) {
         console.error('Error fetching bike list:', error);
         return [];
@@ -316,7 +316,7 @@ async function fetchBikeList(stationName, stationID) {
         bikes.forEach(bike => {
             const tdqrBike = tdqrBikes.find(tdqrBike => tdqrBike.id === `bike_${bike.bikeName}`);
             if (tdqrBike) {
-                bike.score = tdqrBike.score || 0; 
+                bike.score = tdqrBike.score || 0;
                 bike.lastRideTime = tdqrBike.lastRideTime || "?";
                 bike.battery_level = tdqrBike.battery_level || "?";
             } else {
@@ -331,19 +331,19 @@ async function fetchBikeList(stationName, stationID) {
     }
 
     // sort by best bike 
-        // criterion 
-        // 1. bikeStatus == "disponible"
-        // 2. score (from tdqr.ovh)
-        // 3. bikeRate
-        // 4. bikeRate * numberOfRates
-        bikes.sort((a, b) => {
-            if (a.bikeStatus === "disponible" && b.bikeStatus !== "disponible") return -1; // prioritize available bikes
-            if (b.bikeStatus === "disponible" && a.bikeStatus !== "disponible") return 1; // prioritize available bikes
-            if (a.score !== b.score) return b.score - a.score; // sort by score descending
-            if (a.bikeRate !== b.bikeRate) return b.bikeRate - a.bikeRate; // sort by bikeRate descending
-            // if bikeRate is the same, sort by numberOfRates descending
-            return b.numberOfRates - a.numberOfRates;
-        });     
+    // criterion 
+    // 1. bikeStatus == "disponible"
+    // 2. score (from tdqr.ovh)
+    // 3. bikeRate
+    // 4. bikeRate * numberOfRates
+    bikes.sort((a, b) => {
+        if (a.bikeStatus === "disponible" && b.bikeStatus !== "disponible") return -1; // prioritize available bikes
+        if (b.bikeStatus === "disponible" && a.bikeStatus !== "disponible") return 1; // prioritize available bikes
+        if (a.score !== b.score) return b.score - a.score; // sort by score descending
+        if (a.bikeRate !== b.bikeRate) return b.bikeRate - a.bikeRate; // sort by bikeRate descending
+        // if bikeRate is the same, sort by numberOfRates descending
+        return b.numberOfRates - a.numberOfRates;
+    });
 
     return bikes;
 }
@@ -357,7 +357,7 @@ function getTimeTextFromNow(lastRideTime) {
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
-    
+
     let timeText = '';
 
     if (diffMinutes < 1) {
@@ -403,8 +403,8 @@ function displayBikeList(bikeList, containerId) {
         grayedOut = bike.bikeStatus === "disponible" ? "" : "grayed-out";
 
         const bikeItem = document.createElement('table');
-        bikeItem.className = "bike-item "+ bike.type + " " + grayedOut;
-        
+        bikeItem.className = "bike-item " + bike.type + " " + grayedOut;
+
         const tbody = document.createElement('tbody');
         const dockPositionRow = document.createElement('tr');
         dockPositionRow.className = "container-row-space-around";
@@ -457,12 +457,12 @@ function displayBikeList(bikeList, containerId) {
 }
 
 async function updateBikeLists() {
-    const bikeListPromises = myStationData.stations.map((station, index) => 
-        fetchBikeList(station.name, station.number).then(bikes => ({index, bikes}))
+    const bikeListPromises = myStationData.stations.map((station, index) =>
+        fetchBikeList(station.name, station.number).then(bikes => ({ index, bikes }))
     );
-    
+
     const results = await Promise.all(bikeListPromises);
-    results.forEach(({index, bikes}) => {
+    results.forEach(({ index, bikes }) => {
         displayBikeList(bikes, `bike-list-${index}`);
     });
 }
