@@ -23,7 +23,7 @@ jobs:
       - name: Install Playwright
         run: |
           npm init -y
-          npm install playwright
+          npm install playwright@1.55.1
       
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
