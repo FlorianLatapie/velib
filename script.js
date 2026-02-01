@@ -12,24 +12,31 @@ if (localStorage.getItem('velib') === localStorage.getItem('stationData')) {
 // Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
 const CORS_PROXIES = [
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
+    (url) => `https://proxy.corsfix.com/?${url}`, // works well
+
+    //(url) =>  `https://api.cors.lol/?url=${url}`, // does not work
+    //(url) => `https://api.thebugging.com/cors-proxy?url=${url}`, // error 500
+
     //(url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`, // error 500
-    //(url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // timeout
     //(url) => `https://cors-anywhere.com/${url}`, // error 500
-    //(url) => `https://thingproxy.freeboard.io/fetch/${url}`, // timeout
     //(url) => `https://cors.eu.org/${url}`, // error 500
-    //(url) => `https://crossorigin.me/${url}`, // timeout
+    //(url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // pas fiable
+
+    //(url) => url, // direct fetch as last resort,
+    //(url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, // lent
+
 ];
 
-async function fetchWithCorsProxy(targetUrl, options = {}) {
+async function fetchWithCorsProxy(targetUrl) {
     let lastError = null;
 
     for (const proxyFn of CORS_PROXIES) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 1000);
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
 
+            // with header "origin: tdqr.ovh" to bypass tdqr.ovh CORS policy
             const response = await fetch(proxyFn(targetUrl), {
-                ...options,
                 signal: controller.signal
             });
 
@@ -141,7 +148,8 @@ function showStationForm() {
         }
 
         // Fetch station names
-        fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
+        //fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
+        fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
             .then(response => response.json())
             .then(data => {
                 const stationInfos = data.data.stations;
@@ -262,7 +270,8 @@ if (myStationData) {
 // fill in summary data
 async function fetchStationsStatus() {
     try {
-        const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
+        //const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
+        const response = await fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
         const statusData = await response.json();
         return statusData.data.stations;
     } catch (error) {
@@ -288,6 +297,7 @@ async function updateStationSummary() {
 }
 
 // get precise bike list for a station
+// Returns { bikes: [], error: null } on success, { bikes: [], error: 'message' } on error
 async function fetchBikeList(stationName, stationID) {
     let bikes = [];
     try {
@@ -303,13 +313,20 @@ async function fetchBikeList(stationName, stationID) {
             body: JSON.stringify(body)
         };
         const response = await fetch(`https://www.velib-metropole.fr/api/secured/searchStation`, options);
+        if (!response.ok) {
+            console.error('Error fetching bike list: HTTP', response.status);
+            return { bikes: [], error: `Erreur HTTP ${response.status}` };
+        }
         const data = await response.json();
+        if (!data || !data[0] || !data[0].bikes) {
+            console.error('Error fetching bike list: invalid response format');
+            return { bikes: [], error: 'Réponse API invalide' };
+        }
         bikes = data[0].bikes;
-
 
     } catch (error) {
         console.error('Error fetching bike list:', error);
-        return [];
+        return { bikes: [], error: error.name === 'AbortError' ? 'Timeout' : 'Erreur réseau' };
     }
 
     try {
@@ -330,8 +347,10 @@ async function fetchBikeList(stationName, stationID) {
             }
         });
     } catch (error) {
-        console.error('Error fetching tdqr.ovh bike list:', error);
-        return [];
+        // console.error('Error fetching tdqr.ovh bike list:', error);
+        // now we display the http code 
+        console.error('Error fetching tdqr.ovh bike list', error);
+        return { bikes: [], error: 'Erreur lors de la récupération des scores Velibest' };
     }
 
     // sort by best bike 
@@ -349,7 +368,7 @@ async function fetchBikeList(stationName, stationID) {
         return b.numberOfRates - a.numberOfRates;
     });
 
-    return bikes;
+    return { bikes, error: null };
 }
 
 function getTimeTextFromNow(lastRideTime) {
@@ -384,14 +403,22 @@ function getTimeTextFromNow(lastRideTime) {
     });
 }
 
-function displayBikeList(bikeList, containerId) {
+function displayBikeList(bikeList, containerId, error = null) {
     const container = document.getElementById(containerId);
     container.innerHTML = ''; // Clear previous content
+    
+    // Cas d'erreur API (timeout, 500, etc.)
+    if (error) {
+        const errorMessage = document.createElement('p');
+        errorMessage.textContent = `⚠️ ${error}`;
+        container.appendChild(errorMessage);
+        return;
+    }
+    
+    // Cas où il n'y a vraiment aucun vélo sur la station
     if (bikeList.length === 0) {
-        // make a p object with a message, do not use .innerHTML
         const noBikesMessage = document.createElement('p');
         noBikesMessage.textContent = 'Aucun vélo disponible';
-        noBikesMessage.className = 'no-bikes-message';
         container.appendChild(noBikesMessage);
         return;
     }
@@ -417,14 +444,6 @@ function displayBikeList(bikeList, containerId) {
             <td><p><strong>${bike.dockPosition}</strong></p></td>
         `;
         tbody.appendChild(dockPositionRow);
-
-        /*const scoreRow = document.createElement('tr');
-        scoreRow.className = "container-row-space-around";
-        scoreRow.innerHTML = `
-            <td><p><strong>Score</strong></p></td>
-            <td><p>${bike.bikeRate} (${bike.numberOfRates} notes)</p></td>
-        `;
-        tbody.appendChild(scoreRow);*/
 
         const velibestRow = document.createElement('tr');
         velibestRow.className = "container-row-space-around";
@@ -462,12 +481,12 @@ function displayBikeList(bikeList, containerId) {
 
 async function updateBikeLists() {
     const bikeListPromises = myStationData.stations.map((station, index) =>
-        fetchBikeList(station.name, station.number).then(bikes => ({ index, bikes }))
+        fetchBikeList(station.name, station.number).then(result => ({ index, ...result }))
     );
 
     const results = await Promise.all(bikeListPromises);
-    results.forEach(({ index, bikes }) => {
-        displayBikeList(bikes, `bike-list-${index}`);
+    results.forEach(({ index, bikes, error }) => {
+        displayBikeList(bikes, `bike-list-${index}`, error);
     });
 }
 
