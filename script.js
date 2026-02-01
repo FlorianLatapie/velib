@@ -148,8 +148,8 @@ function showStationForm() {
         }
 
         // Fetch station names
-        //fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
-        fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
+        fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
+        // fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
             .then(response => response.json())
             .then(data => {
                 const stationInfos = data.data.stations;
@@ -270,8 +270,8 @@ if (myStationData) {
 // fill in summary data
 async function fetchStationsStatus() {
     try {
-        //const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
-        const response = await fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
+        const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
+        //const response = await fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
         const statusData = await response.json();
         return statusData.data.stations;
     } catch (error) {
