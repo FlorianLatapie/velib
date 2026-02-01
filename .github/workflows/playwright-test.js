@@ -34,7 +34,8 @@ const { chromium } = require('playwright');
   await page.reload();
   
   // Wait for the page to load completely
-  await page.waitForLoadState('networkidle', { timeout: 30000 });
+  // Using networkidle to ensure all API calls complete
+  await page.waitForLoadState('networkidle', { timeout: 60000 });
   
   // Get the visible text content of the page
   const pageText = await page.evaluate(() => document.body.innerText);
