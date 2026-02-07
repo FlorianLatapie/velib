@@ -1,0 +1,38 @@
+name: Playwright Test
+
+on:
+  push:
+    branches:
+      - '**'  # Run on push to any branch
+  schedule:
+    - cron: '0 18 * * *'  # Run every day at 18:00 UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: test
+        run: |
+          curl -i "https://api.codetabs.com/v1/proxy/?quest=https://tdqr.ovh/api/stations/station_1021/details"
+
+#      - name: Setup Node.js
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: '20'
+#      
+#      - name: Install Playwright
+#        run: |
+#          npm init -y
+#          npm install playwright@1.55.1
+#      
+#      - name: Install Playwright browsers
+#        run: npx playwright install chromium --with-deps
+#      
+#      - name: Run Playwright test
+#        run: node .github/workflows/playwright-test.js
