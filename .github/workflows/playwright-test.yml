@@ -19,7 +19,7 @@ jobs:
 
       - name: test
         run: |
-          curl https://api.codetabs.com/v1/proxy?quest=https://tdqr.ovh/api/stations/station_1021/details
+          curl -i https://api.codetabs.com/v1/proxy?quest=https://tdqr.ovh/api/stations/station_1021/details
       
 #      - name: Setup Node.js
 #        uses: actions/setup-node@v4
