@@ -80,9 +80,9 @@ function showStationForm() {
             <div id="stationsContainer">
                 <!-- Stations will be generated dynamically -->
             </div>
-            <button type="button" id="addStation" class="apple-style-button">Ajouter une station</button>
-            <button type="button" id="removeStation" class="apple-style-button">Supprimer la dernière station</button>
-            <button type="submit" class="apple-style-button">Sauvegarder</button>
+            <button type="button" id="addStation" class="btn-common">Ajouter une station</button>
+            <button type="button" id="removeStation" class="btn-common">Supprimer la dernière station</button>
+            <button type="submit" class="btn-common">Sauvegarder</button>
         </form>
     `;
 

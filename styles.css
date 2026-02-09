@@ -1,10 +1,6 @@
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
     font-family: system-ui, sans-serif;
     text-align: center;
-    /* make all element at the same z-index */
 }
 
 table {
@@ -161,6 +157,10 @@ td>p {
     opacity: 0.5;
 }
 
+.btn-common {
+    margin: 5px;
+}
+
 /* Spinner animation for the refresh button */
 .refresh-button.spin {
     animation: spin 1s linear infinite;
@@ -176,21 +176,6 @@ td>p {
     }
 }
 
-.apple-style-button {
-    display: inline-block;
-    padding: 5px 16px;
-    text-decoration: none;
-    border-radius: 100vh;
-    background-color: #e9e9eb;
-    color: #2374f5;
-    border: none;
-    text-align: left;
-    margin: 5px;
-}
-
-.apple-style-button:hover {
-    background-color: #dcdce0;
-}
 
 .form-container {
     position: fixed;
