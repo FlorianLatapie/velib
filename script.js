@@ -1,13 +1,4 @@
-// copy old localstorage data from "stationData" to "velib"
-// temporary migration code
-if (localStorage.getItem('stationData') && !localStorage.getItem('velib')) {
-    localStorage.setItem('velib', localStorage.getItem('stationData'));
-    localStorage.removeItem('stationData');
-}
-
-if (localStorage.getItem('velib') === localStorage.getItem('stationData')) {
-    localStorage.removeItem('stationData');
-}
+const storage = new LocalStorageWrapper('velib');
 
 // Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
 const CORS_PROXIES = [
@@ -55,7 +46,7 @@ async function fetchWithCorsProxy(targetUrl) {
 }
 
 document.getElementById('delete-data').addEventListener('click', () => {
-    localStorage.removeItem('velib');
+    storage.clear();
     location.reload();
 });
 
@@ -68,10 +59,6 @@ document.getElementById('update-station-data').addEventListener('click', () => {
 let stationData;
 
 function showStationForm() {
-    // Get existing station data for autofill
-    const existingStationData = JSON.parse(localStorage.getItem('velib'));
-    const existingStations = existingStationData ? existingStationData.stations : [];
-
     const formContainer = document.createElement('div');
     formContainer.className = 'form-container';
     formContainer.innerHTML = `
@@ -85,6 +72,11 @@ function showStationForm() {
             <button type="submit" class="btn-common">Sauvegarder</button>
         </form>
     `;
+
+    // Get existing station data for autofill
+    //const existingStationData = storage.getAllItems();
+    //const existingStations = existingStationData ? existingStationData.stations : [];
+    const existingStations = storage.getItem('stations', []);
 
     // Remove existing form if any
     const existingForm = document.querySelector('.form-container');
@@ -167,8 +159,7 @@ function showStationForm() {
                     });
                 }
 
-                stationData = { stations: validStations };
-                localStorage.setItem('velib', JSON.stringify(stationData));
+                storage.setItem('stations', validStations);
                 formContainer.remove();
                 location.reload();
             })
@@ -179,19 +170,21 @@ function showStationForm() {
     });
 }
 
-if (!localStorage.getItem('velib')) {
+if (storage.isEmpty()) {
     showStationForm();
 }
 
-// set up 
-myStationData = JSON.parse(localStorage.getItem('velib'));
+function getStationData() {
+    //const data = storage.__getAllItems();
+    //if (!data || !Array.isArray(data.stations)) return null;
+    //return data;
+    return { stations: storage.getItem('stations')};
+}
 
 // Create dynamic station panes
-function createStationPanes() {
+function createStationPanes(stations) {
     const container = document.getElementById('half-pane-container');
     container.innerHTML = ''; // Clear existing content
-
-    const stations = myStationData.stations;
 
     // Create left column
     const leftColumn = document.createElement('div');
@@ -263,8 +256,9 @@ function createStationPane(station, index) {
 }
 
 // Initialize the dynamic panes
-if (myStationData) {
-    createStationPanes();
+const initialStationData = getStationData();
+if (initialStationData) {
+    createStationPanes(initialStationData.stations);
 }
 
 // fill in summary data
@@ -280,13 +274,13 @@ async function fetchStationsStatus() {
     }
 }
 
-async function updateStationSummary() {
+async function updateStationSummary(stationData) {
     const stations = await fetchStationsStatus();
 
-    myStationData.stations.forEach((stationData, index) => {
-        const station = stations.find(s => s.stationCode == stationData.number);
+    stationData.stations.forEach((stationEntry, index) => {
+        const station = stations.find(s => s.stationCode == stationEntry.number);
         if (!station) {
-            console.error(`Station ${stationData.number} not found`);
+            console.error(`Station ${stationEntry.number} not found`);
             return;
         }
 
@@ -479,8 +473,8 @@ function displayBikeList(bikeList, containerId, error = null) {
     });
 }
 
-async function updateBikeLists() {
-    const bikeListPromises = myStationData.stations.map((station, index) =>
+async function updateBikeLists(stationData) {
+    const bikeListPromises = stationData.stations.map((station, index) =>
         fetchBikeList(station.name, station.number).then(result => ({ index, ...result }))
     );
 
@@ -491,9 +485,10 @@ async function updateBikeLists() {
 }
 
 async function updatePage() {
-    if (!myStationData) return;
-    await updateStationSummary();
-    await updateBikeLists();
+    const stationData = getStationData();
+    if (!stationData) return;
+    await updateStationSummary(stationData);
+    await updateBikeLists(stationData);
 }
 
 // Call updatePage and handle any errors
