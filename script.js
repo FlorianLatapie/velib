@@ -1,5 +1,11 @@
 const storage = new LocalStorageWrapper('velib');
 
+const STATION_INFO_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json';
+const STATION_STATUS_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json';
+const SEARCH_STATION_URL = 'https://www.velib-metropole.fr/api/secured/searchStation';
+const TDQR_STATION_DETAILS_URL = (stationID) => `https://tdqr.ovh/api/stations/station_${stationID}/details`;
+const FETCH_TIMEOUT_MS = 2000;
+
 // Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
 const CORS_PROXIES = [
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
@@ -15,7 +21,6 @@ const CORS_PROXIES = [
 
     //(url) => url, // direct fetch as last resort,
     //(url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, // lent
-
 ];
 
 async function fetchWithCorsProxy(targetUrl) {
@@ -24,7 +29,7 @@ async function fetchWithCorsProxy(targetUrl) {
     for (const proxyFn of CORS_PROXIES) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
             // with header "origin: tdqr.ovh" to bypass tdqr.ovh CORS policy
             const response = await fetch(proxyFn(targetUrl), {
@@ -55,6 +60,31 @@ document.getElementById('update-station-data').addEventListener('click', () => {
     showStationForm();
 });
 
+function createStationInputGroup(index, existingValue = '') {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    group.innerHTML = `
+        <label for="stationNumber${index}">Station ${index + 1}:</label>
+        <input type="number" id="stationNumber${index}" value="${existingValue}" required>
+    `;
+    return group;
+}
+
+function findStationByCode(stationInfos, stationCode) {
+    return stationInfos.find((station) => String(station.stationCode) === String(stationCode));
+}
+
+function collectStationNumbers(stationCount) {
+    const stations = [];
+    for (let i = 0; i < stationCount; i++) {
+        const stationNumber = document.getElementById(`stationNumber${i}`).value;
+        if (stationNumber) {
+            stations.push(stationNumber);
+        }
+    }
+    return stations;
+}
+
 // get setup from localStorage
 let stationData;
 
@@ -73,9 +103,6 @@ function showStationForm() {
         </form>
     `;
 
-    // Get existing station data for autofill
-    //const existingStationData = storage.getAllItems();
-    //const existingStations = existingStationData ? existingStationData.stations : [];
     const existingStations = storage.getItem('stations', []);
 
     // Remove existing form if any
@@ -95,14 +122,8 @@ function showStationForm() {
         container.innerHTML = '';
 
         for (let i = 0; i < stationCount; i++) {
-            const newGroup = document.createElement('div');
-            newGroup.className = 'form-group';
             const existingValue = existingStations[i] ? existingStations[i].number : '';
-            newGroup.innerHTML = `
-                <label for="stationNumber${i}">Station ${i + 1}:</label>
-                <input type="number" id="stationNumber${i}" value="${existingValue}" required>
-            `;
-            container.appendChild(newGroup);
+            container.appendChild(createStationInputGroup(i, existingValue));
         }
     }
 
@@ -110,13 +131,7 @@ function showStationForm() {
 
     document.getElementById('addStation').addEventListener('click', () => {
         const container = document.getElementById('stationsContainer');
-        const newGroup = document.createElement('div');
-        newGroup.className = 'form-group';
-        newGroup.innerHTML = `
-            <label for="stationNumber${stationCount}">Station ${stationCount + 1}:</label>
-            <input type="number" id="stationNumber${stationCount}" required>
-        `;
-        container.appendChild(newGroup);
+        container.appendChild(createStationInputGroup(stationCount));
         stationCount++;
     });
 
@@ -130,25 +145,17 @@ function showStationForm() {
 
     document.getElementById('stationForm').addEventListener('submit', (event) => {
         event.preventDefault();
-        const stations = [];
-
-        for (let i = 0; i < stationCount; i++) {
-            const stationNumber = document.getElementById(`stationNumber${i}`).value;
-            if (stationNumber) {
-                stations.push(stationNumber);
-            }
-        }
+        const stations = collectStationNumbers(stationCount);
 
         // Fetch station names
-        fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
-        // fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json')
+        fetchWithCorsProxy(STATION_INFO_URL)
             .then(response => response.json())
             .then(data => {
                 const stationInfos = data.data.stations;
                 const validStations = [];
 
                 for (const stationNumber of stations) {
-                    const station = stationInfos.find(s => s.stationCode == stationNumber);
+                    const station = findStationByCode(stationInfos, stationNumber);
                     if (!station) {
                         alert(`La station ${stationNumber} n'existe pas. Veuillez réessayer.`);
                         return;
@@ -175,9 +182,6 @@ if (storage.isEmpty()) {
 }
 
 function getStationData() {
-    //const data = storage.__getAllItems();
-    //if (!data || !Array.isArray(data.stations)) return null;
-    //return data;
     return { stations: storage.getItem('stations')};
 }
 
@@ -264,8 +268,7 @@ if (initialStationData) {
 // fill in summary data
 async function fetchStationsStatus() {
     try {
-        const response = await fetchWithCorsProxy('https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
-        //const response = await fetch('https://corsproxy.io/?url=https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json');
+        const response = await fetchWithCorsProxy(STATION_STATUS_URL);
         const statusData = await response.json();
         return statusData.data.stations;
     } catch (error) {
@@ -278,7 +281,7 @@ async function updateStationSummary(stationData) {
     const stations = await fetchStationsStatus();
 
     stationData.stations.forEach((stationEntry, index) => {
-        const station = stations.find(s => s.stationCode == stationEntry.number);
+        const station = findStationByCode(stations, stationEntry.number);
         if (!station) {
             console.error(`Station ${stationEntry.number} not found`);
             return;
@@ -306,7 +309,7 @@ async function fetchBikeList(stationName, stationID) {
             },
             body: JSON.stringify(body)
         };
-        const response = await fetch(`https://www.velib-metropole.fr/api/secured/searchStation`, options);
+        const response = await fetch(SEARCH_STATION_URL, options);
         if (!response.ok) {
             console.error('Error fetching bike list: HTTP', response.status);
             return { bikes: [], error: `Erreur HTTP ${response.status}` };
@@ -324,10 +327,9 @@ async function fetchBikeList(stationName, stationID) {
     }
 
     try {
-        const targetUrl = `https://tdqr.ovh/api/stations/station_${stationID}/details`;
-        const response = await fetchWithCorsProxy(targetUrl);
+        const response = await fetchWithCorsProxy(TDQR_STATION_DETAILS_URL(stationID));
         const data = await response.json();
-        tdqrBikes = data.data.bikes;
+        const tdqrBikes = data.data.bikes;
         bikes.forEach(bike => {
             const tdqrBike = tdqrBikes.find(tdqrBike => tdqrBike.id === `bike_${bike.bikeName}`);
             if (tdqrBike) {
@@ -425,7 +427,7 @@ function displayBikeList(bikeList, containerId, error = null) {
             bike.typeTxt = "Mécanique";
         }
 
-        grayedOut = bike.bikeStatus === "disponible" ? "" : "grayed-out";
+        const grayedOut = bike.bikeStatus === "disponible" ? "" : "grayed-out";
 
         const bikeItem = document.createElement('table');
         bikeItem.className = "bike-item " + bike.type + " " + grayedOut;
@@ -494,7 +496,7 @@ async function updatePage() {
 // Call updatePage and handle any errors
 updatePage();
 
-refreshButton = document.getElementById('refresh');
+const refreshButton = document.getElementById('refresh');
 refreshButton.addEventListener('click', () => {
     // make the button spin
     refreshButton.classList.add('spin');
