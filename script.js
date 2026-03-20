@@ -5,7 +5,7 @@ const STATION_STATUS_URL = 'https://velib-metropole-opendata.smovengo.cloud/open
 const SEARCH_STATION_URL = 'https://www.velib-metropole.fr/api/secured/searchStation';
 const TDQR_STATION_DETAILS_URL = (stationID) => `https://tdqr.ovh/api/stations/station_${stationID}/details`;
 
-const FETCH_TIMEOUT_MS = 2000;
+const FETCH_TIMEOUT_MS = 500;
 const MIN_STATIONS = 2;
 const BIKE_FILTER_TYPES = Object.freeze({
     MECHANICAL: 'mechanical',
@@ -16,6 +16,7 @@ const stationFiltersByIndex = {};
 const bikeResultsByStationIndex = {};
 
 const CORS_PROXIES = [
+    (url) => url, // direct fetch as first option
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
     (url) => `https://proxy.corsfix.com/?${url}`, // works well
     // (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -595,7 +596,7 @@ function setupServiceWorker() {
     }
 
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register('/velib/service-worker.js')
             .then((registration) => console.log('ServiceWorker registered:', registration))
             .catch((error) => console.error('ServiceWorker registration failed:', error));
     });
