@@ -140,6 +140,15 @@ td>p {
     box-shadow: 0 0 10px #0000003f;
 }
 
+.summary-item.filter-toggle {
+    cursor: pointer;
+    opacity: 0.25;
+}
+
+.summary-item.filter-toggle.active {
+    opacity: 1;
+}
+
 .count {
     font-size: 3em;
 }

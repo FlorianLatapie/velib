@@ -7,6 +7,13 @@ const TDQR_STATION_DETAILS_URL = (stationID) => `https://tdqr.ovh/api/stations/s
 
 const FETCH_TIMEOUT_MS = 2000;
 const MIN_STATIONS = 2;
+const BIKE_FILTER_TYPES = Object.freeze({
+    MECHANICAL: 'mechanical',
+    ELECTRIC: 'electric'
+});
+
+const stationFiltersByIndex = {};
+const bikeResultsByStationIndex = {};
 
 const CORS_PROXIES = [
     (url) => `https://proxy.corsfix.com/?${url}`
@@ -40,6 +47,75 @@ function getStationData() {
 
 function hasConfiguredStations(stationData) {
     return Array.isArray(stationData?.stations) && stationData.stations.length > 0;
+}
+
+function getStationFilterState(index) {
+    if (!stationFiltersByIndex[index]) {
+        stationFiltersByIndex[index] = {
+            [BIKE_FILTER_TYPES.MECHANICAL]: true,
+            [BIKE_FILTER_TYPES.ELECTRIC]: true
+        };
+    }
+
+    return stationFiltersByIndex[index];
+}
+
+function isElectricBike(bike) {
+    return bike.bikeElectric === 'yes';
+}
+
+function filterBikesForStation(index, bikes) {
+    const filterState = getStationFilterState(index);
+    const mechanicalActive = filterState[BIKE_FILTER_TYPES.MECHANICAL];
+    const electricActive = filterState[BIKE_FILTER_TYPES.ELECTRIC];
+
+    if (!mechanicalActive && !electricActive) {
+        return [];
+    }
+
+    return bikes.filter((bike) => {
+        const bikeIsElectric = isElectricBike(bike);
+
+        return (mechanicalActive && !bikeIsElectric) || (electricActive && bikeIsElectric);
+    });
+}
+
+function updateFilterUiState(index) {
+    const filterState = getStationFilterState(index);
+    const mechanicalItem = document.getElementById(`mechanical-summary-${index}`);
+    const electricItem = document.getElementById(`electric-summary-${index}`);
+
+    if (mechanicalItem) {
+        mechanicalItem.classList.toggle('active', filterState[BIKE_FILTER_TYPES.MECHANICAL]);
+        mechanicalItem.setAttribute('aria-pressed', String(filterState[BIKE_FILTER_TYPES.MECHANICAL]));
+    }
+
+    if (electricItem) {
+        electricItem.classList.toggle('active', filterState[BIKE_FILTER_TYPES.ELECTRIC]);
+        electricItem.setAttribute('aria-pressed', String(filterState[BIKE_FILTER_TYPES.ELECTRIC]));
+    }
+}
+
+function renderStationBikeList(index) {
+    const stationResult = bikeResultsByStationIndex[index];
+    if (!stationResult) {
+        return;
+    }
+
+    if (stationResult.error) {
+        displayBikeList([], `bike-list-${index}`, stationResult.error);
+        return;
+    }
+
+    const filteredBikes = filterBikesForStation(index, stationResult.bikes || []);
+    displayBikeList(filteredBikes, `bike-list-${index}`);
+}
+
+function toggleFilterAndRender(index, filterType) {
+    const filterState = getStationFilterState(index);
+    filterState[filterType] = !filterState[filterType];
+    updateFilterUiState(index);
+    renderStationBikeList(index);
 }
 
 async function fetchWithTimeout(url, options = {}) {
@@ -200,12 +276,12 @@ function createStationPane(station, index) {
             <h2 class="station-name" id="station-name-${index}">${station.name}</h2>
         </div>
         <div class="container-row-space-around">
-            <div class="mechanical summary-item">
+            <div class="mechanical summary-item filter-toggle active" id="mechanical-summary-${index}" role="button" tabindex="0" aria-label="Filtrer les vélos mécaniques" aria-pressed="true">
                 ${MECHANICAL_ICON_HTML}
                 <p class="info-text">Mécanique</p>
                 <p class="count" id="mechanical-count-${index}">--</p>
             </div>
-            <div class="electric summary-item">
+            <div class="electric summary-item filter-toggle active" id="electric-summary-${index}" role="button" tabindex="0" aria-label="Filtrer les vélos électriques" aria-pressed="true">
                 ${ELECTRIC_ICON_HTML}
                 <p class="info-text">Électrique</p>
                 <p class="count" id="electric-count-${index}">--</p>
@@ -220,6 +296,33 @@ function createStationPane(station, index) {
             téléchargement des données ...
         </div>
     `;
+
+    const mechanicalSummaryItem = pane.querySelector(`#mechanical-summary-${index}`);
+    const electricSummaryItem = pane.querySelector(`#electric-summary-${index}`);
+
+    const handleToggle = (filterType) => {
+        toggleFilterAndRender(index, filterType);
+    };
+
+    mechanicalSummaryItem?.addEventListener('click', () => handleToggle(BIKE_FILTER_TYPES.MECHANICAL));
+    electricSummaryItem?.addEventListener('click', () => handleToggle(BIKE_FILTER_TYPES.ELECTRIC));
+
+    mechanicalSummaryItem?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleToggle(BIKE_FILTER_TYPES.MECHANICAL);
+        }
+    });
+
+    electricSummaryItem?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleToggle(BIKE_FILTER_TYPES.ELECTRIC);
+        }
+    });
+
+    updateFilterUiState(index);
+
     return pane;
 }
 
@@ -447,7 +550,8 @@ async function updateBikeLists(stationData) {
     );
 
     results.forEach(({ index, bikes, error }) => {
-        displayBikeList(bikes, `bike-list-${index}`, error);
+        bikeResultsByStationIndex[index] = { bikes, error };
+        renderStationBikeList(index);
     });
 }
 
