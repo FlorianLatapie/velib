@@ -16,7 +16,6 @@ const stationFiltersByIndex = {};
 const bikeResultsByStationIndex = {};
 
 const CORS_PROXIES = [
-    (url) => url, // direct fetch as first option
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
     (url) => `https://proxy.corsfix.com/?${url}`, // works well
     // (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
