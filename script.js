@@ -1,15 +1,16 @@
 const storage = new LocalStorageWrapper('velib');
-
+const STORAGE_STATIONS_KEY = 'stations';
 const STATION_INFO_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json';
 const STATION_STATUS_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json';
 const SEARCH_STATION_URL = 'https://www.velib-metropole.fr/api/secured/searchStation';
 const TDQR_STATION_DETAILS_URL = (stationID) => `https://tdqr.ovh/api/stations/station_${stationID}/details`;
-const FETCH_TIMEOUT_MS = 2000;
 
-// Wrapper pour les proxies CORS - teste plusieurs proxies en cas d'échec
+const FETCH_TIMEOUT_MS = 2000;
+const MIN_STATIONS = 2;
+
 const CORS_PROXIES = [
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
-    (url) => `https://proxy.corsfix.com/?${url}`, // works well
+    (url) => `https://proxy.corsfix.com/?${url}`
+    // (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 
     //(url) =>  `https://api.cors.lol/?url=${url}`, // does not work
     //(url) => `https://api.thebugging.com/cors-proxy?url=${url}`, // error 500
@@ -23,42 +24,75 @@ const CORS_PROXIES = [
     //(url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, // lent
 ];
 
-async function fetchWithCorsProxy(targetUrl) {
+const STAR_ICON_HTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-star h-3 w-3" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg>';
+
+const MECHANICAL_ICON_HTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon mechanical" aria-hidden="true"><circle cx="18.5" cy="17.5" r="3.5"></circle><circle cx="5.5" cy="17.5" r="3.5"></circle><circle cx="15" cy="5" r="1"></circle><path d="M12 17.5V14l-3-3 4-3 2 3h2"></path></svg>';
+const ELECTRIC_ICON_HTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon electric" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>';
+const PARKING_ICON_HTML = '<svg class="icon parking" width="24" height="24" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><path d="M 23.520836,11.511719 L 68.450523,11.511719 C 81.809827,11.511824 92.052004,14.488383 99.177086,20.441406 C 106.34886,26.347746 109.9348,34.785238 109.9349,45.753906 C 109.9348,56.769591 106.34886,65.253957 99.177086,71.207031 C 92.052004,77.113321 81.809827,80.066443 68.450523,80.066406 L 50.591148,80.066406 L 50.591148,116.48828 L 23.520836,116.48828 L 23.520836,11.511719 M 50.591148,31.128906 L 50.591148,60.449219 L 65.567711,60.449219 C 70.81765,60.449275 74.872334,59.183651 77.731773,56.652344 C 80.591078,54.074281 82.020764,50.441472 82.020836,45.753906 C 82.020764,41.066482 80.591078,37.45711 77.731773,34.925781 C 74.872334,32.394615 70.81765,31.128992 65.567711,31.128906 L 50.591148,31.128906" /></svg>';
+
+function getStoredStations() {
+    return storage.getItem(STORAGE_STATIONS_KEY, []);
+}
+
+function getStationData() {
+    return { stations: getStoredStations() };
+}
+
+function hasConfiguredStations(stationData) {
+    return Array.isArray(stationData?.stations) && stationData.stations.length > 0;
+}
+
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function fetchJsonWithCorsProxy(targetUrl) {
     let lastError = null;
 
     for (const proxyFn of CORS_PROXIES) {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-            // with header "origin: tdqr.ovh" to bypass tdqr.ovh CORS policy
-            const response = await fetch(proxyFn(targetUrl), {
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
+            const response = await fetchWithTimeout(proxyFn(targetUrl));
             if (response.ok) {
-                return response;
+                return response.json();
             }
-        } catch (e) {
-            lastError = e;
-            console.warn(`Proxy failed for ${targetUrl}:`, e.message);
+
+            lastError = new Error(`HTTP ${response.status}`);
+            console.warn(`Proxy failed for ${targetUrl}: HTTP ${response.status}`);
+        } catch (error) {
+            lastError = error;
+            console.warn(`Proxy failed for ${targetUrl}:`, error.message);
         }
     }
 
     throw lastError || new Error('All CORS proxies failed');
 }
 
-document.getElementById('delete-data').addEventListener('click', () => {
-    storage.clear();
-    location.reload();
-});
+function findStationByCode(stations, stationCode) {
+    return stations.find((station) => String(station.stationCode) === String(stationCode));
+}
 
-// reload page to refresh data
-document.getElementById('update-station-data').addEventListener('click', () => {
-    showStationForm();
-});
+function collectStationNumbers(stationCount) {
+    const stations = [];
+
+    for (let i = 0; i < stationCount; i++) {
+        const stationNumber = document.getElementById(`stationNumber${i}`)?.value;
+        if (stationNumber) {
+            stations.push(stationNumber);
+        }
+    }
+
+    return stations;
+}
 
 function createStationInputGroup(index, existingValue = '') {
     const group = document.createElement('div');
@@ -70,131 +104,132 @@ function createStationInputGroup(index, existingValue = '') {
     return group;
 }
 
-function findStationByCode(stationInfos, stationCode) {
-    return stationInfos.find((station) => String(station.stationCode) === String(stationCode));
-}
+function renderStationInputs(container, stationCount, existingStations) {
+    container.innerHTML = '';
 
-function collectStationNumbers(stationCount) {
-    const stations = [];
     for (let i = 0; i < stationCount; i++) {
-        const stationNumber = document.getElementById(`stationNumber${i}`).value;
-        if (stationNumber) {
-            stations.push(stationNumber);
-        }
+        const existingValue = existingStations[i]?.number || '';
+        container.appendChild(createStationInputGroup(i, existingValue));
     }
-    return stations;
 }
 
-// get setup from localStorage
-let stationData;
+async function saveStationsFromForm(stations, formContainer) {
+    try {
+        const data = await fetchJsonWithCorsProxy(STATION_INFO_URL);
+        const stationInfos = data?.data?.stations || [];
+        const validStations = [];
+
+        for (const stationNumber of stations) {
+            const station = findStationByCode(stationInfos, stationNumber);
+            if (!station) {
+                alert(`La station ${stationNumber} n'existe pas. Veuillez réessayer.`);
+                return;
+            }
+
+            validStations.push({
+                number: stationNumber,
+                name: station.name
+            });
+        }
+
+        storage.setItem(STORAGE_STATIONS_KEY, validStations);
+        formContainer.remove();
+        location.reload();
+    } catch (error) {
+        console.error('Error fetching station information:', error);
+        alert('Erreur lors de la récupération des informations de station. Veuillez réessayer.');
+    }
+}
 
 function showStationForm() {
+    const existingStations = getStoredStations();
+    let stationCount = Math.max(existingStations.length, MIN_STATIONS);
+
+    const existingForm = document.querySelector('.form-container');
+    if (existingForm) {
+        existingForm.remove();
+    }
+
     const formContainer = document.createElement('div');
     formContainer.className = 'form-container';
     formContainer.innerHTML = `
         <h2>Choisissez vos stations</h2>
         <form id="stationForm">
-            <div id="stationsContainer">
-                <!-- Stations will be generated dynamically -->
-            </div>
+            <div id="stationsContainer"></div>
             <button type="button" id="addStation" class="btn-common">Ajouter une station</button>
             <button type="button" id="removeStation" class="btn-common">Supprimer la dernière station</button>
             <button type="submit" class="btn-common">Sauvegarder</button>
         </form>
     `;
 
-    const existingStations = storage.getItem('stations', []);
-
-    // Remove existing form if any
-    const existingForm = document.querySelector('.form-container');
-    if (existingForm) {
-        existingForm.remove();
-    }
-
     document.body.appendChild(formContainer);
 
-    // Initialize with existing stations or default 2 stations
-    let stationCount = Math.max(existingStations.length, 2);
+    const stationForm = document.getElementById('stationForm');
+    const stationsContainer = document.getElementById('stationsContainer');
+    const addStationButton = document.getElementById('addStation');
+    const removeStationButton = document.getElementById('removeStation');
 
-    // Generate initial form groups
-    function generateStationInputs() {
-        const container = document.getElementById('stationsContainer');
-        container.innerHTML = '';
+    renderStationInputs(stationsContainer, stationCount, existingStations);
 
-        for (let i = 0; i < stationCount; i++) {
-            const existingValue = existingStations[i] ? existingStations[i].number : '';
-            container.appendChild(createStationInputGroup(i, existingValue));
-        }
-    }
-
-    generateStationInputs();
-
-    document.getElementById('addStation').addEventListener('click', () => {
-        const container = document.getElementById('stationsContainer');
-        container.appendChild(createStationInputGroup(stationCount));
-        stationCount++;
+    addStationButton.addEventListener('click', () => {
+        stationsContainer.appendChild(createStationInputGroup(stationCount));
+        stationCount += 1;
     });
 
-    document.getElementById('removeStation').addEventListener('click', () => {
-        if (stationCount > 2) {
-            const container = document.getElementById('stationsContainer');
-            container.removeChild(container.lastElementChild);
-            stationCount--;
+    removeStationButton.addEventListener('click', () => {
+        if (stationCount <= MIN_STATIONS) {
+            return;
         }
+
+        stationsContainer.removeChild(stationsContainer.lastElementChild);
+        stationCount -= 1;
     });
 
-    document.getElementById('stationForm').addEventListener('submit', (event) => {
+    stationForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const stations = collectStationNumbers(stationCount);
-
-        // Fetch station names
-        fetchWithCorsProxy(STATION_INFO_URL)
-            .then(response => response.json())
-            .then(data => {
-                const stationInfos = data.data.stations;
-                const validStations = [];
-
-                for (const stationNumber of stations) {
-                    const station = findStationByCode(stationInfos, stationNumber);
-                    if (!station) {
-                        alert(`La station ${stationNumber} n'existe pas. Veuillez réessayer.`);
-                        return;
-                    }
-                    validStations.push({
-                        number: stationNumber,
-                        name: station.name
-                    });
-                }
-
-                storage.setItem('stations', validStations);
-                formContainer.remove();
-                location.reload();
-            })
-            .catch(error => {
-                console.error('Error fetching station information:', error);
-                alert('Erreur lors de la récupération des informations de station. Veuillez réessayer.');
-            });
+        await saveStationsFromForm(stations, formContainer);
     });
 }
 
-if (storage.isEmpty()) {
-    showStationForm();
+function createStationPane(station, index) {
+    const pane = document.createElement('div');
+    pane.className = 'pane station-pane';
+    pane.innerHTML = `
+        <div class="container-row-space-around">
+            <h2 class="station-name" id="station-name-${index}">${station.name}</h2>
+        </div>
+        <div class="container-row-space-around">
+            <div class="mechanical summary-item">
+                ${MECHANICAL_ICON_HTML}
+                <p class="info-text">Mécanique</p>
+                <p class="count" id="mechanical-count-${index}">--</p>
+            </div>
+            <div class="electric summary-item">
+                ${ELECTRIC_ICON_HTML}
+                <p class="info-text">Électrique</p>
+                <p class="count" id="electric-count-${index}">--</p>
+            </div>
+            <div class="parking summary-item">
+                ${PARKING_ICON_HTML}
+                <p class="info-text">Parking</p>
+                <p class="count" id="parking-count-${index}">--</p>
+            </div>
+        </div>
+        <div id="bike-list-${index}" class="container-col-space-between">
+            téléchargement des données ...
+        </div>
+    `;
+    return pane;
 }
 
-function getStationData() {
-    return { stations: storage.getItem('stations')};
-}
-
-// Create dynamic station panes
 function createStationPanes(stations) {
     const container = document.getElementById('half-pane-container');
-    container.innerHTML = ''; // Clear existing content
+    container.innerHTML = '';
 
-    // Create left column
     const leftColumn = document.createElement('div');
     leftColumn.className = 'station-column';
 
-    // Create right column
     const rightColumn = document.createElement('div');
     rightColumn.className = 'station-column';
 
@@ -211,66 +246,21 @@ function createStationPanes(stations) {
     container.appendChild(rightColumn);
 }
 
-function createStationPane(station, index) {
-    const pane = document.createElement('div');
-    pane.className = 'pane station-pane';
-    pane.innerHTML = `
-        <div class="container-row-space-around">
-            <h2 class="station-name" id="station-name-${index}">${station.name}</h2>
-        </div>
-        <div class="container-row-space-around">
-            <div class="mechanical summary-item">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="icon mechanical" aria-hidden="true">
-                    <circle cx="18.5" cy="17.5" r="3.5"></circle>
-                    <circle cx="5.5" cy="17.5" r="3.5"></circle>
-                    <circle cx="15" cy="5" r="1"></circle>
-                    <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path>
-                </svg>
-                <p class="info-text">Mécanique</p>
-                <p class="count" id="mechanical-count-${index}">--</p>
-            </div>
-            <div class="electric summary-item">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="icon electric" aria-hidden="true">
-                    <path
-                        d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z">
-                    </path>
-                </svg>
-                <p class="info-text">Électrique</p>
-                <p class="count" id="electric-count-${index}">--</p>
-            </div>
-            <div class="parking summary-item">
-                <svg class="icon parking" width="24" height="24" viewBox="0 0 128 128"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M 23.520836,11.511719 L 68.450523,11.511719 C 81.809827,11.511824 92.052004,14.488383 99.177086,20.441406 C 106.34886,26.347746 109.9348,34.785238 109.9349,45.753906 C 109.9348,56.769591 106.34886,65.253957 99.177086,71.207031 C 92.052004,77.113321 81.809827,80.066443 68.450523,80.066406 L 50.591148,80.066406 L 50.591148,116.48828 L 23.520836,116.48828 L 23.520836,11.511719 M 50.591148,31.128906 L 50.591148,60.449219 L 65.567711,60.449219 C 70.81765,60.449275 74.872334,59.183651 77.731773,56.652344 C 80.591078,54.074281 82.020764,50.441472 82.020836,45.753906 C 82.020764,41.066482 80.591078,37.45711 77.731773,34.925781 C 74.872334,32.394615 70.81765,31.128992 65.567711,31.128906 L 50.591148,31.128906" />
-                </svg>
-                <p class="info-text">Parking</p>
-                <p class="count" id="parking-count-${index}">--</p>
-            </div>
-        </div>
-        <div id="bike-list-${index}" class="container-col-space-between">
-            téléchargement des données ...
-        </div>
-    `;
-    return pane;
+function getBikeCountByType(station, bikeTypeKey) {
+    return station.num_bikes_available_types?.find((type) => type[bikeTypeKey])?.[bikeTypeKey] || 0;
 }
 
-// Initialize the dynamic panes
-const initialStationData = getStationData();
-if (initialStationData) {
-    createStationPanes(initialStationData.stations);
+function setTextContent(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.innerText = value;
+    }
 }
 
-// fill in summary data
 async function fetchStationsStatus() {
     try {
-        const response = await fetchWithCorsProxy(STATION_STATUS_URL);
-        const statusData = await response.json();
-        return statusData.data.stations;
+        const data = await fetchJsonWithCorsProxy(STATION_STATUS_URL);
+        return data?.data?.stations || [];
     } catch (error) {
         console.error('Error fetching station status:', error);
         return [];
@@ -287,200 +277,175 @@ async function updateStationSummary(stationData) {
             return;
         }
 
-        document.getElementById(`mechanical-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.mechanical)?.mechanical || 0;
-        document.getElementById(`electric-count-${index}`).innerText = station.num_bikes_available_types.find(type => type.ebike)?.ebike || 0;
-        document.getElementById(`parking-count-${index}`).innerText = station.numDocksAvailable;
+        setTextContent(`mechanical-count-${index}`, getBikeCountByType(station, 'mechanical'));
+        setTextContent(`electric-count-${index}`, getBikeCountByType(station, 'ebike'));
+        setTextContent(`parking-count-${index}`, station.numDocksAvailable || 0);
     });
 }
 
-// get precise bike list for a station
-// Returns { bikes: [], error: null } on success, { bikes: [], error: 'message' } on error
+
+
+function mergeTdqrDataIntoBikes(bikes, tdqrBikes) {
+    bikes.forEach((bike) => {
+        const tdqrBike = tdqrBikes.find((item) => item.id === `bike_${bike.bikeName}`);
+        bike.score = tdqrBike?.score || 0;
+        bike.lastRideTime = tdqrBike?.lastRideTime || '?';
+        bike.battery_level = tdqrBike?.battery_level || '?';
+    });
+}
+
+function sortBikesByPriority(a, b) {
+    const isAvailableA = a.bikeStatus === 'disponible';
+    const isAvailableB = b.bikeStatus === 'disponible';
+
+    if (isAvailableA && !isAvailableB) return -1;
+    if (isAvailableB && !isAvailableA) return 1;
+    if (a.score !== b.score) return b.score - a.score;
+    if (a.bikeRate !== b.bikeRate) return b.bikeRate - a.bikeRate;
+    return b.numberOfRates - a.numberOfRates;
+}
+
 async function fetchBikeList(stationName, stationID) {
     let bikes = [];
+
     try {
-        const body = {
-            "disponibility": "yes",
-            "stationName": stationName
-        };
-        const options = {
-            method: "POST",
+        const response = await fetchWithTimeout(SEARCH_STATION_URL, {
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json"
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(body)
-        };
-        const response = await fetch(SEARCH_STATION_URL, options);
+            body: JSON.stringify({
+                disponibility: 'yes',
+                stationName
+            })
+        });
+
         if (!response.ok) {
             console.error('Error fetching bike list: HTTP', response.status);
             return { bikes: [], error: `Erreur HTTP ${response.status}` };
         }
+
         const data = await response.json();
-        if (!data || !data[0] || !data[0].bikes) {
+        bikes = data?.[0]?.bikes;
+
+        if (!Array.isArray(bikes)) {
             console.error('Error fetching bike list: invalid response format');
             return { bikes: [], error: 'Réponse API invalide' };
         }
-        bikes = data[0].bikes;
-
     } catch (error) {
         console.error('Error fetching bike list:', error);
         return { bikes: [], error: error.name === 'AbortError' ? 'Timeout' : 'Erreur réseau' };
     }
 
     try {
-        const response = await fetchWithCorsProxy(TDQR_STATION_DETAILS_URL(stationID));
-        const data = await response.json();
-        const tdqrBikes = data.data.bikes;
-        bikes.forEach(bike => {
-            const tdqrBike = tdqrBikes.find(tdqrBike => tdqrBike.id === `bike_${bike.bikeName}`);
-            if (tdqrBike) {
-                bike.score = tdqrBike.score || 0;
-                bike.lastRideTime = tdqrBike.lastRideTime || "?";
-                bike.battery_level = tdqrBike.battery_level || "?";
-            } else {
-                bike.score = 0;
-                bike.lastRideTime = "?";
-                bike.battery_level = "?";
-            }
-        });
+        const tdqrData = await fetchJsonWithCorsProxy(TDQR_STATION_DETAILS_URL(stationID));
+        const tdqrBikes = tdqrData?.data?.bikes || [];
+        mergeTdqrDataIntoBikes(bikes, tdqrBikes);
     } catch (error) {
-        // console.error('Error fetching tdqr.ovh bike list:', error);
-        // now we display the http code 
         console.error('Error fetching tdqr.ovh bike list', error);
         return { bikes: [], error: 'Erreur lors de la récupération des scores Velibest' };
     }
 
-    // sort by best bike 
-    // criterion 
-    // 1. bikeStatus == "disponible"
-    // 2. score (from tdqr.ovh)
-    // 3. bikeRate
-    // 4. bikeRate * numberOfRates
-    bikes.sort((a, b) => {
-        if (a.bikeStatus === "disponible" && b.bikeStatus !== "disponible") return -1; // prioritize available bikes
-        if (b.bikeStatus === "disponible" && a.bikeStatus !== "disponible") return 1; // prioritize available bikes
-        if (a.score !== b.score) return b.score - a.score; // sort by score descending
-        if (a.bikeRate !== b.bikeRate) return b.bikeRate - a.bikeRate; // sort by bikeRate descending
-        // if bikeRate is the same, sort by numberOfRates descending
-        return b.numberOfRates - a.numberOfRates;
-    });
+    bikes.sort(sortBikesByPriority);
 
     return { bikes, error: null };
 }
 
 function getTimeTextFromNow(lastRideTime) {
-    if (lastRideTime === "?") return "?";
+    if (lastRideTime === '?') {
+        return '?';
+    }
 
     const lastRideDate = new Date(lastRideTime);
-    const diffMs = new Date().getTime() - lastRideDate.getTime();
-
+    const diffMs = Date.now() - lastRideDate.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    let timeText = '';
+    if (diffMinutes < 1) {return 'moins d\'une minute';}
 
-    if (diffMinutes < 1) {
-        timeText = 'moins d\'une minute';
-    } else if (diffMinutes < 60) {
-        // il y a X minutes
-        timeText = `il y a ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
-    } else if (diffHours < 24) {
-        // il y a X heures
-        timeText = `il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
-    } else if (diffDays < 30) {
-        // il y a X jours
-        timeText = `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-    }
-    // si trop long, afficher directement la date au format "dd/mm/yyyy"
-    return timeText || lastRideDate.toLocaleDateString('fr-FR', {
+    if (diffMinutes < 60) {return `il y a ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;}
+    if (diffHours < 24) {return `il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;}
+    if (diffDays < 30) {return `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;}
+
+    return lastRideDate.toLocaleDateString('fr-FR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
     });
 }
 
+function createBikeTableRow(label, valueHtml) {
+    const row = document.createElement('tr');
+    row.className = 'container-row-space-around';
+    row.innerHTML = `
+        <td><p><strong>${label}</strong></p></td>
+        <td><p>${valueHtml}</p></td>
+    `;
+    return row;
+}
+
+function createBikeItemElement(bike) {
+    const isElectric = bike.bikeElectric === 'yes';
+    const decoratedBike = {
+        ...bike,
+        type: isElectric ? 'electric' : 'mechanical',
+        typeTxt: isElectric ? 'Électrique' : 'Mécanique'
+    }
+    const grayedOut = decoratedBike.bikeStatus === 'disponible' ? '' : 'grayed-out';
+
+    const bikeItem = document.createElement('table');
+    bikeItem.className = `bike-item ${decoratedBike.type} ${grayedOut}`;
+
+    const tbody = document.createElement('tbody');
+    tbody.appendChild(createBikeTableRow('Place', `<strong>${decoratedBike.dockPosition}</strong>`));
+    tbody.appendChild(createBikeTableRow('Velibest', `${decoratedBike.score}&nbsp;${STAR_ICON_HTML}`));
+
+    if (decoratedBike.bikeElectric === 'yes') {
+        tbody.appendChild(createBikeTableRow('Batterie', `${decoratedBike.battery_level}&nbsp;%`));
+    }
+
+    tbody.appendChild(createBikeTableRow('Dernier trajet', getTimeTextFromNow(decoratedBike.lastRideTime)));
+    bikeItem.appendChild(tbody);
+
+    return bikeItem;
+}
+
 function displayBikeList(bikeList, containerId, error = null) {
     const container = document.getElementById(containerId);
-    container.innerHTML = ''; // Clear previous content
-    
-    // Cas d'erreur API (timeout, 500, etc.)
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = '';
+
     if (error) {
         const errorMessage = document.createElement('p');
         errorMessage.textContent = `⚠️ ${error}`;
         container.appendChild(errorMessage);
         return;
     }
-    
-    // Cas où il n'y a vraiment aucun vélo sur la station
+
     if (bikeList.length === 0) {
         const noBikesMessage = document.createElement('p');
         noBikesMessage.textContent = 'Aucun vélo disponible';
         container.appendChild(noBikesMessage);
         return;
     }
-    bikeList.forEach(bike => {
-        if (bike.bikeElectric === "yes") {
-            bike.type = "electric";
-            bike.typeTxt = "Électrique";
-        } else {
-            bike.type = "mechanical";
-            bike.typeTxt = "Mécanique";
-        }
 
-        const grayedOut = bike.bikeStatus === "disponible" ? "" : "grayed-out";
-
-        const bikeItem = document.createElement('table');
-        bikeItem.className = "bike-item " + bike.type + " " + grayedOut;
-
-        const tbody = document.createElement('tbody');
-        const dockPositionRow = document.createElement('tr');
-        dockPositionRow.className = "container-row-space-around";
-        dockPositionRow.innerHTML = `
-            <td><p><strong>Place</strong></p></td>
-            <td><p><strong>${bike.dockPosition}</strong></p></td>
-        `;
-        tbody.appendChild(dockPositionRow);
-
-        const velibestRow = document.createElement('tr');
-        velibestRow.className = "container-row-space-around";
-        velibestRow.innerHTML = `
-            <td><p><strong>Velibest</strong></p></td>
-            <td>
-                <p>${bike.score}&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-star h-3 w-3" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg>
-                </p>
-            </td>
-        `;
-        tbody.appendChild(velibestRow);
-
-        if (bike.bikeElectric === "yes") {
-            const batteryRow = document.createElement('tr');
-            batteryRow.className = "container-row-space-around";
-            batteryRow.innerHTML = `
-                <td><p><strong>Batterie</strong></p></td>
-                <td><p>${bike.battery_level}&nbsp;%</p></td>
-            `;
-            tbody.appendChild(batteryRow);
-        }
-
-        const lastRideRow = document.createElement('tr');
-        lastRideRow.className = "container-row-space-around";
-        lastRideRow.innerHTML = `
-            <td><p><strong>Dernier trajet</strong></p></td>
-            <td><p>${getTimeTextFromNow(bike.lastRideTime)}</p></td>
-        `;
-        tbody.appendChild(lastRideRow);
-
-        bikeItem.appendChild(tbody);
-        container.appendChild(bikeItem);
+    bikeList.forEach((bike) => {
+        container.appendChild(createBikeItemElement(bike));
     });
 }
 
 async function updateBikeLists(stationData) {
-    const bikeListPromises = stationData.stations.map((station, index) =>
-        fetchBikeList(station.name, station.number).then(result => ({ index, ...result }))
+    const results = await Promise.all(
+        stationData.stations.map(async (station, index) => {
+            const result = await fetchBikeList(station.name, station.number);
+            return { index, ...result };
+        })
     );
 
-    const results = await Promise.all(bikeListPromises);
     results.forEach(({ index, bikes, error }) => {
         displayBikeList(bikes, `bike-list-${index}`, error);
     });
@@ -488,29 +453,61 @@ async function updateBikeLists(stationData) {
 
 async function updatePage() {
     const stationData = getStationData();
-    if (!stationData) return;
+    if (!hasConfiguredStations(stationData)) {
+        return;
+    }
+
     await updateStationSummary(stationData);
     await updateBikeLists(stationData);
 }
 
-// Call updatePage and handle any errors
-updatePage();
+function setupActions() {
+    const deleteButton = document.getElementById('delete-data');
+    const updateStationsButton = document.getElementById('update-station-data');
+    const refreshButton = document.getElementById('refresh');
 
-const refreshButton = document.getElementById('refresh');
-refreshButton.addEventListener('click', () => {
-    // make the button spin
-    refreshButton.classList.add('spin');
-    setTimeout(() => {
-        refreshButton.classList.remove('spin');
-    }, 1000);
-    updatePage();
-});
+    deleteButton.addEventListener('click', () => {
+        storage.clear();
+        location.reload();
+    });
 
-// Register service worker for PWA (minimal)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('ServiceWorker registered:', reg))
-            .catch(err => console.error('ServiceWorker registration failed:', err));
+    updateStationsButton.addEventListener('click', () => {
+        showStationForm();
+    });
+
+    refreshButton.addEventListener('click', () => {
+        refreshButton.classList.add('spin');
+        setTimeout(() => {
+            refreshButton.classList.remove('spin');
+        }, 1000);
+        updatePage();
     });
 }
+
+function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+        return;
+    }
+
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => console.log('ServiceWorker registered:', registration))
+            .catch((error) => console.error('ServiceWorker registration failed:', error));
+    });
+}
+
+function init() {
+    setupActions();
+    setupServiceWorker();
+
+    const stationData = getStationData();
+    if (!hasConfiguredStations(stationData)) {
+        showStationForm();
+        return;
+    }
+
+    createStationPanes(stationData.stations);
+    updatePage();
+}
+
+init();
