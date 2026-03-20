@@ -590,21 +590,8 @@ function setupActions() {
     });
 }
 
-function setupServiceWorker() {
-    if (!('serviceWorker' in navigator)) {
-        return;
-    }
-
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/velib/service-worker.js')
-            .then((registration) => console.log('ServiceWorker registered:', registration))
-            .catch((error) => console.error('ServiceWorker registration failed:', error));
-    });
-}
-
 function init() {
     setupActions();
-    setupServiceWorker();
 
     const stationData = getStationData();
     if (!hasConfiguredStations(stationData)) {
