@@ -1,17 +1,27 @@
-const CACHE_NAME = 'velib-cache-v1';
+const CACHE_NAME = 'velib-cache-v2';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/manifest.json',
-  '/favicon.png'
+  // './',
+  // './index.html',
+  // './styles.css',
+  // './script.js',
+  // './manifest.json',
+  './favicon.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS_TO_CACHE))
+      .then(cache => Promise.allSettled(ASSETS_TO_CACHE.map(asset => cache.add(asset))))
+      .then(results => {
+        const failedAssets = results
+          .map((result, index) => ({ result, asset: ASSETS_TO_CACHE[index] }))
+          .filter(({ result }) => result.status === 'rejected')
+          .map(({ asset }) => asset);
+
+        if (failedAssets.length) {
+          console.warn('Some assets failed to cache during install:', failedAssets);
+        }
+      })
       .then(() => self.skipWaiting())
   );
 });
