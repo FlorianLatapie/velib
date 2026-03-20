@@ -16,7 +16,8 @@ const stationFiltersByIndex = {};
 const bikeResultsByStationIndex = {};
 
 const CORS_PROXIES = [
-    (url) => `https://proxy.corsfix.com/?${url}`
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
+    (url) => `https://proxy.corsfix.com/?${url}`, // works well
     // (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 
     //(url) =>  `https://api.cors.lol/?url=${url}`, // does not work
