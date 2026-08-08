@@ -144,12 +144,9 @@ async function fetchJsonWithCorsProxy(targetUrl) {
             if (response.ok) {
                 return response.json();
             }
-
-            lastError = new Error(`HTTP ${response.status}`);
-            console.warn(`Proxy failed for ${targetUrl}: HTTP ${response.status}`);
         } catch (error) {
             lastError = error;
-            console.warn(`Proxy failed for ${targetUrl}:`, error.message);
+            console.warn(`Proxy failed for \n${proxyFn(targetUrl)}\n${error.message}`);
         }
     }
 
