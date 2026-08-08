@@ -138,6 +138,7 @@ async function fetchJsonWithCorsProxy(targetUrl) {
     let lastError = null;
 
     for (const proxyFn of CORS_PROXIES) {
+        console.log(`Trying CORS proxy for ${targetUrl}: ${proxyFn(targetUrl)}`);
         try {
             const response = await fetchWithTimeout(proxyFn(targetUrl));
             if (response.ok) {
@@ -191,7 +192,7 @@ function renderStationInputs(container, stationCount, existingStations) {
     }
 }
 
-async function saveStationsFromForm(stations, formContainer) {
+async function saveStationsFromForm(formContainer, stations) {
     try {
         const data = await fetchJsonWithCorsProxy(STATION_INFO_URL);
         const stationInfos = data?.data?.stations || [];
@@ -265,8 +266,10 @@ function showStationForm() {
 
     stationForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const stations = collectStationNumbers(stationCount);
-        await saveStationsFromForm(stations, formContainer);
+        await saveStationsFromForm(
+            formContainer,
+            collectStationNumbers(stationCount)
+        );
     });
 }
 
