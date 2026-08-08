@@ -1,9 +1,10 @@
 const storage = new LocalStorageWrapper('velib');
 const STORAGE_STATIONS_KEY = 'stations';
-const STATION_INFO_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json';
-const STATION_STATUS_URL = 'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json';
+const STATION_INFO_URL   = 'https://velib.florianlatapie.workers.dev/opendata/information';
+const STATION_STATUS_URL = 'https://velib.florianlatapie.workers.dev/opendata/status';
 const SEARCH_STATION_URL = 'https://www.velib-metropole.fr/api/secured/searchStation';
-const TDQR_STATION_DETAILS_URL = (stationID) => `https://tdqr.ovh/api/stations/station_${stationID}/details`;
+const TDQR_STATION_DETAILS_URL = (stationID) => `https://velib.florianlatapie.workers.dev/velibest/${stationID}`;
+
 
 const FETCH_TIMEOUT_MS = 500;
 const MIN_STATIONS = 2;
@@ -14,24 +15,6 @@ const BIKE_FILTER_TYPES = Object.freeze({
 
 const stationFiltersByIndex = {};
 const bikeResultsByStationIndex = {};
-
-const CORS_PROXIES = [
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, // works well
-    (url) => `https://proxy.corsfix.com/?${url}`, // works well
-    (url) =>  url
-    // (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-
-    //(url) =>  `https://api.cors.lol/?url=${url}`, // does not work
-    //(url) => `https://api.thebugging.com/cors-proxy?url=${url}`, // error 500
-
-    //(url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`, // error 500
-    //(url) => `https://cors-anywhere.com/${url}`, // error 500
-    //(url) => `https://cors.eu.org/${url}`, // error 500
-    //(url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // pas fiable
-
-    //(url) => url, // direct fetch as last resort,
-    //(url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, // lent
-];
 
 const STAR_ICON_HTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-star h-3 w-3" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg>';
 
@@ -134,23 +117,9 @@ async function fetchWithTimeout(url, options = {}) {
     }
 }
 
-async function fetchJsonWithCorsProxy(targetUrl) {
-    let lastError = null;
-
-    for (const proxyFn of CORS_PROXIES) {
-        console.log(`Trying CORS proxy for ${targetUrl}: ${proxyFn(targetUrl)}`);
-        try {
-            const response = await fetchWithTimeout(proxyFn(targetUrl));
-            if (response.ok) {
-                return response.json();
-            }
-        } catch (error) {
-            lastError = error;
-            console.warn(`Proxy failed for \n${proxyFn(targetUrl)}\n${error.message}`);
-        }
-    }
-
-    throw lastError || new Error('All CORS proxies failed');
+async function fetchJson(targetUrl) {
+    const response = await fetch(targetUrl);
+    return response.json();
 }
 
 function findStationByCode(stations, stationCode) {
@@ -191,7 +160,7 @@ function renderStationInputs(container, stationCount, existingStations) {
 
 async function saveStationsFromForm(formContainer, stations) {
     try {
-        const data = await fetchJsonWithCorsProxy(STATION_INFO_URL);
+        const data = await fetchJson(STATION_INFO_URL);
         const stationInfos = data?.data?.stations || [];
         const validStations = [];
 
@@ -364,7 +333,7 @@ function setTextContent(id, value) {
 
 async function fetchStationsStatus() {
     try {
-        const data = await fetchJsonWithCorsProxy(STATION_STATUS_URL);
+        const data = await fetchJson(STATION_STATUS_URL);
         return data?.data?.stations || [];
     } catch (error) {
         console.error('Error fetching station status:', error);
@@ -414,7 +383,7 @@ async function fetchBikeList(stationName, stationID) {
     let bikes = [];
 
     try {
-        const response = await fetchWithTimeout(SEARCH_STATION_URL, {
+        const response = await fetch(SEARCH_STATION_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -443,7 +412,7 @@ async function fetchBikeList(stationName, stationID) {
     }
 
     try {
-        const tdqrData = await fetchJsonWithCorsProxy(TDQR_STATION_DETAILS_URL(stationID));
+        const tdqrData = await fetchJson(TDQR_STATION_DETAILS_URL(stationID));
         const tdqrBikes = tdqrData?.data?.bikes || [];
         mergeTdqrDataIntoBikes(bikes, tdqrBikes);
     } catch (error) {
