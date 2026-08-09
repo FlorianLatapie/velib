@@ -11,8 +11,10 @@ const SOURCES = {
     `https://tdqr.ovh/api/stations/station_${stationId}/details`,
 };
 
+const ALLOWED_ORIGIN = 'https://florianlatapie.github.io';
+const ALLOWED_REFERER_PREFIX = 'https://florianlatapie.github.io/velib/';
+
 const CORS = {
-  'Access-Control-Allow-Origin': 'https://florianlatapie.github.io',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
@@ -20,28 +22,58 @@ const CORS = {
 const CACHE = 'public, max-age=30';
 const TIMEOUT = 8_000;
 
-const headers = (contentType = 'application/json; charset=utf-8') => ({
+const isAllowedRequest = (request) => {
+  const origin = request?.headers.get('Origin');
+  const referer = request?.headers.get('Referer');
+
+  if (origin && origin !== ALLOWED_ORIGIN) {
+    return false;
+  }
+
+  if (referer && !referer.startsWith(ALLOWED_REFERER_PREFIX)) {
+    return false;
+  }
+
+  return true;
+};
+
+const headers = (request, contentType = 'application/json; charset=utf-8') => ({
+  ...(isAllowedRequest(request) ? { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN } : {}),
   ...CORS,
+  Vary: 'Origin, Referer',
   'Content-Type': contentType,
   'Cache-Control': CACHE,
 });
 
-const json = (data, status = 200) =>
+const json = (data, status = 200, request) =>
   Response.json(data, {
     status,
-    headers: headers(),
+    headers: headers(request),
   });
 
-const badRequest = (message) =>
+const badRequest = (message, request) =>
   json(
     {
       error: 'Bad Request',
       message,
     },
     400,
+    request,
   );
 
-const proxy = async (url, options = {}) => {
+const forbidden = (request) =>
+  new Response(
+    JSON.stringify({
+      error: 'Forbidden',
+      message: 'Origin not allowed',
+    }),
+    {
+      status: 403,
+      headers: headers(request),
+    },
+  );
+
+const proxy = async (request, url, options = {}) => {
   const response = await fetch(url, {
     ...options,
     signal: AbortSignal.timeout(TIMEOUT),
@@ -50,13 +82,14 @@ const proxy = async (url, options = {}) => {
   return new Response(response.body, {
     status: response.ok ? response.status : 502,
     headers: headers(
+      request,
       response.headers.get('Content-Type') ||
         'application/json; charset=utf-8',
     ),
   });
 };
 
-async function handleOpenData(pathname) {
+async function handleOpenData(request, pathname) {
   const source =
     pathname === '/opendata/information'
       ? SOURCES.opendata.information
@@ -65,32 +98,35 @@ async function handleOpenData(pathname) {
         : null;
 
   if (!source) {
-    return json({ error: 'Not Found' }, 404);
+    return json({ error: 'Not Found' }, 404, request);
   }
 
   try {
-    return await proxy(source);
+    return await proxy(request, source);
   } catch {
     return json(
       { error: 'Upstream API unavailable' },
       502,
+      request,
     );
   }
 }
 
-async function handleVelibest(stationId) {
+async function handleVelibest(request, stationId) {
   if (!/^\d+$/.test(stationId)) {
-    return badRequest('Invalid stationId');
+    return badRequest('Invalid stationId', request);
   }
 
   try {
     return await proxy(
+      request,
       SOURCES.velibest(stationId),
     );
   } catch {
     return json(
       { error: 'Upstream API unavailable' },
       502,
+      request,
     );
   }
 }
@@ -100,10 +136,14 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    if (!isAllowedRequest(request)) {
+      return forbidden(request);
+    }
+
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
-        headers: CORS,
+        headers: headers(request),
       });
     }
 
@@ -111,7 +151,7 @@ export default {
       request.method === 'GET' &&
       pathname.startsWith('/opendata/')
     ) {
-      return handleOpenData(pathname);
+      return handleOpenData(request, pathname);
     }
 
     const match = pathname.match(
@@ -119,19 +159,19 @@ export default {
     );
 
     if (request.method === 'GET' && match) {
-      return handleVelibest(match[1]);
+      return handleVelibest(request, match[1]);
     }
 
     if (request.method !== 'GET') {
       return new Response(null, {
         status: 405,
         headers: {
-          ...CORS,
+          ...headers(request),
           Allow: 'GET, OPTIONS',
         },
       });
     }
 
-    return json({ error: 'Not Found' }, 404);
+    return json({ error: 'Not Found' }, 404, request);
   },
 };
