@@ -6,9 +6,9 @@ export default defineConfig({
   timeout: 30_000,
 
   use: {
-    baseURL: 'https://florianlatapie.github.io/velib/',
-    screenshot: 'only-on-failure',
+    baseURL: 'https://florianlatapie.github.io/',
     trace: 'retain-on-failure',
+    screenshot: 'on',
     headless: true,
   },
 

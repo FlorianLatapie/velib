@@ -1,0 +1,27 @@
+{
+  "name": "velib",
+  "version": "1.0.0",
+  "description": "This is a simple bookmarklet that allows you to quickly check the availability of Vélib' bikes and stands at your favorite stations",
+  "main": "playwright.config.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlorianLatapie/velib.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/FlorianLatapie/velib/issues"
+  },
+  "homepage": "https://github.com/FlorianLatapie/velib#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
