@@ -17,5 +17,5 @@ test('le site Vélib fonctionne', async ({ page }) => {
     waitUntil: 'networkidle',
   });
 
-  await expect(page).toHaveTitle(/VeXXXlib/i);
+  await expect(page).toHaveTitle(/Velib/i);
 });
