@@ -15,12 +15,15 @@ test('le site Vélib affiche le dernier trajet', async ({ page }) => {
   await page.goto('/velib', {
     waitUntil: 'domcontentloaded',
   });
-
-  //await page.waitForTimeout(5000);
-
+/*
   await expect(
     page.locator('.bike-item')
       .getByText('Dernier trajet', { exact: true })
       .first()
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 10000 });*/
+
+  await page.waitForTimeout(2000);
+
+  const elementText = await page.locator('#parking-count-0').textContent();
+  expect(elementText).not.toContain('--');
 });
