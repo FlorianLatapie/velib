@@ -33,6 +33,10 @@ jobs:
       - name: Run E2E tests
         run: npx playwright test
 
+      - name: Notify ntfy on failure
+        if: ${{ failure() }}
+        run: curl -d "CI test failed $(date +'%H:%M:%S %d/%m/%Y')" ntfy.sh/florianlatapie_velib
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v5
