@@ -36,7 +36,6 @@ jobs:
       - name: Notify ntfy on failure
         if: ${{ failure() }}
         run: 
-          curl -d "CI test failed $(TZ=Europe/Paris date +'%H:%M:%S %d/%m/%Y') Paris" ntfy.sh/florianlatapie_velib;
           curl -d "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" ntfy.sh/florianlatapie_velib
 
       - name: Upload Playwright report

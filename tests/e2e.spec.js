@@ -20,7 +20,7 @@ test('le site Vélib affiche le dernier trajet', async ({ page }) => {
 
   await expect(
     page.locator('.bike-item')
-      .getByText('Dernier trajetXX', { exact: true })
+      .getByText('Dernier trajet', { exact: true })
       .first()
   ).toBeVisible({ timeout: 10000 });
 });
